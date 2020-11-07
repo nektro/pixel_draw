@@ -1,0 +1,47 @@
+version(1);
+project_name = "pixel_drawer";
+patterns = {
+    "*.c",
+    "*.cpp",
+    "*.h",
+    "*.m",
+    "*.bat",
+    "*.sh",
+    "*.zig",
+    "*.4coder",
+};
+blacklist_patterns = {
+    ".*",
+};
+load_paths_base = {
+ { "./src", .relative = true, .recursive = true, },
+};
+
+load_paths = {
+ { load_paths_base, .os = "win", },
+ { load_paths_base, .os = "linux", },
+};
+
+command_list = {
+ { .name = "build",
+   .out = "*compilation*", .footer_panel = true, .save_dirty_files = true,
+   .cmd = {
+        { "zig build", .os = "win" }, 
+        { "zig build", .os = "linux" },
+   },
+ },
+ { .name = "run",
+   .out = "*run*", .footer_panel = false, .save_dirty_files = false,
+   .cmd = { { "zig-cache/bin/pixel_drawer", .os = "win"   },
+            { "zig-cache/bin/pixel_drawer" , .os = "linux" },
+          }, },
+
+ { .name = "build-release",
+   .out = "*compilation*", .footer_panel = false, .save_dirty_files = false,
+   .cmd = { { "zig build -Drelease-fast", .os = "win"   },
+            { "zig build -Drelease-fast" , .os = "linux" },
+          }, },
+};
+fkey_command[1] = "build";
+fkey_command[2] = "run";
+fkey_command[3] = "build-release";
