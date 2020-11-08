@@ -49,11 +49,11 @@ fn update(delta: f32) void {
         draw.drawBitmapFont(fpst, 20, 20, 1, 1, font);
     }
     
-    var mx = [_]f32{ 0.0, -0.8, 0.8 };
+    var mx = [_]f32{ -0.8, -0.8, 0.8 };
     var my = [_]f32{ 0.8, -0.8, -0.8 };
-    var mz = [_]f32{ 0.1, 1.0, 1.0 };
+    var mz = [_]f32{ 0.4, 1.0, 1.0 };
     var mi = [_]u32{ 0, 1, 2 };
-    var mu = [_]f32{ 0.5, 0.0, 1.0 };
+    var mu = [_]f32{ 0.0, 0.0, 1.0 };
     var mv = [_]f32{ 0.0, 1.0, 1.0 };
     
     var mcolors = [_]draw.Color{
