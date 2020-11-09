@@ -92,9 +92,11 @@ pub const Texture = struct {
 
 // Simple texture mapping function, no filter
 pub inline fn textureMap(u: f32, v: f32, tex: Texture) [4]f32 {
-    const tex_u = @floatToInt(u32, (@intToFloat(f32, tex.width) * u));
-    const tex_v = @floatToInt(u32, (@intToFloat(f32, tex.height) * v));
-    const pixel = tex.raw[(tex_u + tex_v * tex.height) * 4 ..][0..4];
+    const tex_u = @floatToInt(u32, (@intToFloat(f32, tex.width) * u)) % tex.width;
+    const tex_v = @floatToInt(u32, (@intToFloat(f32, tex.height) * v)) % tex.height;
+    
+    const tex_pos = (tex_u + tex_v * tex.height) * 4;
+    const pixel = tex.raw[tex_pos..][0..4];
     return [4]f32 {
         @intToFloat(f32, pixel[0]) / 255.0,
         @intToFloat(f32, pixel[1]) / 255.0,
@@ -568,6 +570,7 @@ pub const Mesh = struct {
     x: []f32,
     y: []f32,
     z: []f32,
+    w: []f32,
     i: []u32,
     u: []f32,
     v: []f32,
@@ -656,7 +659,6 @@ pub fn rasterMesh(mesh: Mesh) void {
         const pixel_size_y = 1.0 / @intToFloat(f32, win_height);
         const pixel_size_x = 1.0 / @intToFloat(f32, win_width);
         
-        
         rasterHalfTriangle(mesh, i_up, i_mid, i_down, ia, ib, ic, true);
         rasterHalfTriangle(mesh, i_up, i_mid, i_down, ia, ib, ic, false);
     }
@@ -737,6 +739,10 @@ fn rasterHalfTriangle(mesh: Mesh, i_up: u32, i_mid: u32, i_down: u32,
     const mesh_z_ib_4x = @splat(4, mesh.z[ib]);
     const mesh_z_ic_4x = @splat(4, mesh.z[ic]);
     
+    const mesh_w_ia_4x = @splat(4, mesh.w[ia]);
+    const mesh_w_ib_4x = @splat(4, mesh.w[ib]);
+    const mesh_w_ic_4x = @splat(4, mesh.w[ic]);
+    
     const area_4x = @splat(4, area);
     
     const mcolor_ia = f32_4x{mesh.colors[ia].r, mesh.colors[ia].g, mesh.colors[ia].b, mesh.colors[ia].a};
@@ -752,6 +758,9 @@ fn rasterHalfTriangle(mesh: Mesh, i_up: u32, i_mid: u32, i_down: u32,
     const vc_4x = @splat(4, mesh.v[ic]);
     const one_4x = @splat(4, @as(f32, 1.0));
     
+    const w0_base = (mesh_y_ib_4x * xc_minus_xb_4x - mesh_x_ic_4x * yc_minus_yb_4x) / area_4x;
+    const w1_base = (mesh_y_ic_4x * xa_minus_xc_4x - mesh_x_ic_4x * ya_minus_yc_4x) / area_4x;
+    
     while (true) {
         const yp  = @floatToInt(i32, (-y  + 1) * 0.5 / pixel_size_y);
         const xp2 = @floatToInt(i32, (x2 + 1)  * 0.5 / pixel_size_x);
@@ -763,21 +772,27 @@ fn rasterHalfTriangle(mesh: Mesh, i_up: u32, i_mid: u32, i_down: u32,
         const y_4x = @splat(4, y);
         const x_inc_4x = f32_4x{0, x_inc, x_inc*2, x_inc*3};
         
+        const w0_base2 = (y_4x * xc_minus_xb_4x) / area_4x - w0_base;
+        const w1_base2 = (y_4x * xa_minus_xc_4x) / area_4x - w1_base;
+        
         while (xp < xp2) : (xp += 4) {
             const x_4x = @splat(4, x) + x_inc_4x;
             
-            // TODO(Samuel): Perspective correct interpolation
-            var w0 = ((x_4x - mesh_x_ib_4x) * yc_minus_yb_4x - (y_4x - mesh_y_ib_4x) * xc_minus_xb_4x) / area_4x;
-            var w1 = ((x_4x - mesh_x_ic_4x) * ya_minus_yc_4x - (y_4x - mesh_y_ic_4x) * xa_minus_xc_4x) / area_4x; 
+            // TODO(Samuel): Optimize this out by pre calculating and incrementing the interpolation
+            var w0 = (x_4x * yc_minus_yb_4x) / area_4x - w0_base2;
+            var w1 = (x_4x * ya_minus_yc_4x) / area_4x - w1_base2;
             var w2 = one_4x - w0 - w1;
             
-            w0 *= (mesh_z_ia_4x);
-            w1 *= (mesh_z_ib_4x);
-            w2 *= (mesh_z_ic_4x);
-            const w_sum = w0 + w1 + w2;
-            w0 /= w_sum;
-            w1 /= w_sum;
-            w2 /= w_sum;
+            // NOTE(Samuel): Perspective correct interpolation
+            if (true) {
+                w0 /= mesh_w_ia_4x;
+                w1 /= mesh_w_ib_4x;
+                w2 /= mesh_w_ic_4x;
+                const w_sum = w0 + w1 + w2;
+                w0 /= w_sum;
+                w1 /= w_sum;
+                w2 /= w_sum;
+            }
             
             const z_4x = w0 * mesh_z_ia_4x + w1 * mesh_z_ib_4x + w2 * mesh_z_ic_4x;
             
@@ -790,24 +805,23 @@ fn rasterHalfTriangle(mesh: Mesh, i_up: u32, i_mid: u32, i_down: u32,
                 const w1_4x = @splat(4, w1[i]);
                 const w2_4x = @splat(4, w2[i]);
                 
-                //var color = mcolor_ia * w0_4x + mcolor_ib * w1_4x + mcolor_ic * w2_4x;
+                var color = mcolor_ia * w0_4x + mcolor_ib * w1_4x + mcolor_ic * w2_4x;
                 
                 // TODO(Samuel): Inline and SIMD texture mapping
-                var color: f32_4x = textureMap(u_4x[i], v_4x[i], mesh.texture);
+                //var color: f32_4x = textureMap(u_4x[i], v_4x[i], mesh.texture);
                 
                 //color *= @splat(4, z);
                 //std.debug.print("{} {} {} {}\n", .{color[0], color[1], color[2], color[3]});
                 
                 const _i = @intCast(i32, i);
-                if (xp + _i < xp2) {
-                    const _x = @intCast(u32, xp + _i);
-                    const _y = @intCast(u32, yp);
+                if (xp + _i < xp2)  {
+                    
+                    // HACK(Samuel): Remove this
+                    const _x = @intCast(u32, std.math.clamp(xp + _i, 0, @intCast(i32, win_width) - 1));
+                    const _y = @intCast(u32, std.math.clamp(yp, 0, @intCast(i32, win_height) - 1));
                     
                     const pixel = screen_buffer[(_x + _y * win_width) * 4 ..][0..3];
                     if (color[3] > 0.999) {
-                        color[0] = std.math.clamp(color[0], 0.0, 1.0);
-                        color[1] = std.math.clamp(color[1], 0.0, 1.0);
-                        color[2] = std.math.clamp(color[2], 0.0, 1.0);
                         pixel[0] = @floatToInt(u8, color[0] * 255);
                         pixel[1] = @floatToInt(u8, color[1] * 255);
                         pixel[2] = @floatToInt(u8, color[2] * 255);
