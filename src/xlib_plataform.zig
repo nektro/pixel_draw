@@ -9,6 +9,7 @@ const std = @import("std");
 
 pub var main_allocator: *std.mem.Allocator = undefined;
 pub var screen_buffer: []u8 = undefined;
+pub var depth_buffer: []f32 = undefined;
 
 pub var win_width: u32 = 0;
 pub var win_height: u32 = 0;
@@ -87,20 +88,11 @@ pub fn plataformInit(
     
     const atrribute_mask: u64 = c.CWBitGravity | c.CWBackPixel | c.CWColormap | c.CWEventMask;
     
-    const window = c.XCreateWindow(
-                                   display,
-                                   root_window,
-                                   0,
-                                   0,
-                                   win_width,
-                                   win_height,
-                                   0,
-                                   visual_info.depth,
-                                   c.InputOutput,
-                                   visual_info.visual,
-                                   atrribute_mask,
-                                   &window_attr,
-                                   );
+    const window = c.XCreateWindow(display,   root_window, 0, 0,
+                                   win_width, win_height,  0,
+                                   visual_info.depth, c.InputOutput,
+                                   visual_info.visual, atrribute_mask,
+                                   &window_attr);
     
     if (window == 0) return error.UnableToCreateWindow;
     if (c.XStoreName(display, window, "Hello") == 0) return error.ErrorInRenamingWindow;
@@ -118,6 +110,8 @@ pub fn plataformInit(
     const window_buffer_size = win_width * win_height * pixel_bytes;
     
     screen_buffer = try main_allocator.alloc(u8, window_buffer_size);
+    depth_buffer = try main_allocator.alloc(f32, win_width * win_height);
+    
     var x_window_buffer = c.XCreateImage(
                                          display,
                                          visual_info.visual,
@@ -147,6 +141,9 @@ pub fn plataformInit(
         delta = @floatCast(f32, @intToFloat(f64, initTime) / 1000000000);
         initTime = std.time.nanoTimestamp();
         // std.debug.print("{d:0.4} {d:0.4}\n", .{ 1.0 / delta, delta });
+        
+        for (depth_buffer) |*it| it.* = 1.0;
+        //for (depth_buffer) |*it| it.* = std.math.inf_f32;
         
         var event: c.XEvent = undefined;
         
@@ -259,8 +256,10 @@ pub fn plataformInit(
             
             // Free memory
             main_allocator.free(screen_buffer);
+            main_allocator.free(depth_buffer);
             const new_size = win_width * win_height * pixel_bytes;
             screen_buffer = try main_allocator.alloc(u8, new_size);
+            depth_buffer = try main_allocator.alloc(f32, win_width * win_height);
             
             x_window_buffer = c.XCreateImage(
                                              display,

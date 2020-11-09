@@ -689,6 +689,7 @@ pub fn rasterMesh(mesh: Mesh, mode: RasterMode) void {
                 var i_mid = ia;
                 if (i_mid == i_up) i_mid = ib;
                 if (i_mid == i_down) i_mid = ic;
+                
                 rasterHalfTriangle(mesh, i_up, i_mid, i_down, ia, ib, ic, true);
                 rasterHalfTriangle(mesh, i_up, i_mid, i_down, ia, ib, ic, false);
             },
@@ -715,6 +716,7 @@ fn rasterHalfTriangle(mesh: Mesh, i_up: u32, i_mid: u32, i_down: u32,
         atan1 = (mesh.x[i_up] - mesh.x[i_down]) / (mesh.y[i_up] - mesh.y[i_down]);
         atan2 = (mesh.x[i_mid] - mesh.x[i_down]) / (mesh.y[i_mid] - mesh.y[i_down]);
     }
+    
     var dx1: f32 = 0;
     var dx2: f32 = 0;
     
@@ -725,6 +727,9 @@ fn rasterHalfTriangle(mesh: Mesh, i_up: u32, i_mid: u32, i_down: u32,
         dx1 = pixel_size_y * atan1;
         dx2 = pixel_size_y * atan2;
     }
+    
+    //if (@fabs(dx1) > 0.2) dx1 = 0.2 * @fabs(dx1) / dx1;
+    //if (@fabs(dx2) > 0.2) dx1 = 0.2 * @fabs(dx1) / dx1;
     
     var x1:  f32 = 0.0;
     var x2: f32 = 0.0;
@@ -794,6 +799,12 @@ fn rasterHalfTriangle(mesh: Mesh, i_up: u32, i_mid: u32, i_down: u32,
     const w1_base = (mesh_y_ic_4x * xa_minus_xc_4x - mesh_x_ic_4x * ya_minus_yc_4x) / area_4x;
     
     while (true) {
+        if (upper_triangle) {
+            if (!(y > mesh.y[i_mid] - pixel_size_y)) break;
+        } else {
+            if (!(y < mesh.y[i_mid] + pixel_size_y)) break;
+        }
+        
         const yp  = @floatToInt(i32, (-y  + 1) * 0.5 / pixel_size_y);
         const xp2 = @floatToInt(i32, (x2 + 1)  * 0.5 / pixel_size_x);
         var xp  = @floatToInt(i32, (x1  + 1)  * 0.5 / pixel_size_x);
@@ -824,9 +835,12 @@ fn rasterHalfTriangle(mesh: Mesh, i_up: u32, i_mid: u32, i_down: u32,
                 w0 /= w_sum;
                 w1 /= w_sum;
                 w2 /= w_sum;
+                
+                
             }
+            const one_over_z_4x = w0 * (one_4x / mesh_z_ia_4x) + w1 * (one_4x / mesh_z_ib_4x) + w2 * (one_4x / mesh_z_ic_4x);
             
-            const z_4x = w0 * mesh_z_ia_4x + w1 * mesh_z_ib_4x + w2 * mesh_z_ic_4x;
+            const z_4x = one_4x / one_over_z_4x;
             
             var u_4x = ua_4x * w0 + ub_4x * w1 + uc_4x * w2;
             var v_4x = va_4x * w0 + vb_4x * w1 + vc_4x * w2;
@@ -852,11 +866,23 @@ fn rasterHalfTriangle(mesh: Mesh, i_up: u32, i_mid: u32, i_down: u32,
                     const _x = @intCast(u32, std.math.clamp(xp + _i, 0, @intCast(i32, win_width) - 1));
                     const _y = @intCast(u32, std.math.clamp(yp, 0, @intCast(i32, win_height) - 1));
                     
+                    //std.debug.print("{d}\n", .{z_4x[i]});
+                    const depth_index = _x + _y * win_width;
+                    if (z_4x[i] <= depth_buffer[depth_index]) {
+                        depth_buffer[depth_index] = z_4x[i];
+                    } else {
+                        continue;
+                    }
+                    
                     const pixel = screen_buffer[(_x + _y * win_width) * 4 ..][0..3];
                     if (color[3] > 0.999) {
-                        pixel[0] = @floatToInt(u8, color[0] * 255);
-                        pixel[1] = @floatToInt(u8, color[1] * 255);
-                        pixel[2] = @floatToInt(u8, color[2] * 255);
+                        //pixel[0] = @floatToInt(u8, color[0] * 255);
+                        //pixel[1] = @floatToInt(u8, color[1] * 255);
+                        //pixel[2] = @floatToInt(u8, color[2] * 255);
+                        
+                        pixel[0] = @floatToInt(u8, depth_buffer[depth_index] * 255);
+                        pixel[1] = @floatToInt(u8, depth_buffer[depth_index] * 255);
+                        pixel[2] = @floatToInt(u8, depth_buffer[depth_index] * 255);
                         
                         //pixel[0] = @floatToInt(u8, z_4x[i] * 255);
                         //pixel[1] = @floatToInt(u8, z_4x[i] * 255);
@@ -871,15 +897,11 @@ fn rasterHalfTriangle(mesh: Mesh, i_up: u32, i_mid: u32, i_down: u32,
         if (upper_triangle) {
             x1 -= dx1;
             x2 -= dx2;
-            
             y -= pixel_size_y;
-            if (!(y > mesh.y[i_mid] - pixel_size_y)) break;
         } else {
             x1 += dx1;
             x2 += dx2;
-            
             y += pixel_size_y;
-            if (!(y < mesh.y[i_mid] + pixel_size_y)) break;
         }
     }
 }
