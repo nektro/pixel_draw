@@ -702,6 +702,11 @@ const f32_8x = std.meta.Vector(8, f32);
 
 fn rasterHalfTriangle(mesh: Mesh, i_up: u32, i_mid: u32, i_down: u32,
                       ia: u32, ib: u32, ic: u32, upper_triangle: bool) void
+{}
+
+// NOTE(Samuel): Do not try to optimize before making it work
+fn rasterHalfTriangleButIsAVeryBadImplementation(mesh: Mesh, i_up: u32, i_mid: u32, i_down: u32,
+                                                 ia: u32, ib: u32, ic: u32, upper_triangle: bool) void
 {
     const pixel_size_x = 1.0 / @intToFloat(f32, win_width);
     const pixel_size_y = 1.0 / @intToFloat(f32, win_height);
