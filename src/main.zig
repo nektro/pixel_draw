@@ -61,12 +61,12 @@ fn update(delta: f32) void {
         draw.drawBitmapFont(fpst, 20, 20, 1, 1, font);
     }
     
-    var mx = [_]f32{ 0.0, -0.5, 0.5, 0.5 };
-    var my = [_]f32{ 0.5, -0.5, -0.5, 0.5 };
-    var mz = [_]f32{-1.0, -1.0, -1.0, -0.5 };
+    var mx = [_]f32{ 0.0, -0.5, 0.5,  0.0 };
+    var my = [_]f32{ 0.5, -0.5, -0.5, -0.5 };
+    var mz = [_]f32{-0.0, -0.0, -0.0, -1.0 };
     var mw = [_]f32{ 1.0, 1.0, 1.0, 1.0 };
     
-    var mi = [_]u32{ 0, 1, 2, 0, 3, 1 };
+    var mi = [_]u32{ 0, 1, 2, 0, 1, 3, 0, 3, 2, 1, 2, 3 };
     var mu = [_]f32{ 0.5, 0.0, 1.0, 0.5 };
     var mv = [_]f32{ 0.0, 1.0, 1.0, 0.5 };
     
@@ -79,14 +79,14 @@ fn update(delta: f32) void {
     
     // NOTE(Samuel): Mesh Transformation
     
-    if (draw.keyPressed(.d)) t_x += delta; 
-    if (draw.keyPressed(.a)) t_x -= delta; 
+    if (draw.keyPressed(.d)) t_x -= delta; 
+    if (draw.keyPressed(.a)) t_x += delta; 
     
-    if (draw.keyPressed(.w)) t_y += delta; 
-    if (draw.keyPressed(.s)) t_y -= delta; 
+    if (draw.keyPressed(.w)) t_y -= delta; 
+    if (draw.keyPressed(.s)) t_y += delta; 
     
-    if (draw.keyPressed(.e)) t_z += delta; 
-    if (draw.keyPressed(.q)) t_z -= delta; 
+    if (draw.keyPressed(.up)) t_z += delta; 
+    if (draw.keyPressed(.down)) t_z -= delta; 
     
     var mesh = draw.Mesh{
         .x = &mx,
@@ -114,9 +114,11 @@ fn update(delta: f32) void {
     
     // TODO(Samuel): Cliping
     
-    draw.rasterMesh(mesh);
+    draw.rasterMesh(mesh, .Points);
+    draw.rasterMesh(mesh, .Lines);
+    draw.rasterMesh(mesh, .Faces);
 }
 
 var t_x: f32 = 0.0; 
 var t_y: f32 = 0.0; 
-var t_z: f32 = 0.0; 
+var t_z: f32 = -2.0; 

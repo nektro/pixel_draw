@@ -48,6 +48,8 @@ const Keys = enum(u32) {
     _8 = 14,
     _9 = 15,
     _0 = 16,
+    up = 17,
+    down = 18,
 };
 
 pub inline fn keyDown(key: Keys) bool {
@@ -638,29 +640,59 @@ pub fn rasterTriangle(vert1: [2]f32, vert2: [2]f32, vert3: [2]f32, color: Color)
     }
 }
 
-pub fn rasterMesh(mesh: Mesh) void {
+const RasterMode = enum {
+    Points,
+    Lines,
+    Faces,
+};
+
+pub fn rasterMesh(mesh: Mesh, mode: RasterMode) void {
     var index: u32 = 0;
     while (index < mesh.i.len - 2) : (index += 3) {
         const ia = mesh.i[index];
         const ib = mesh.i[index + 1];
         const ic = mesh.i[index + 2];
         
-        var i_up = ia;
-        if (mesh.y[ib] > mesh.y[i_up]) i_up = ib;
-        if (mesh.y[ic] > mesh.y[i_up]) i_up = ic;
-        
-        var i_down = ia;
-        if (mesh.y[ib] < mesh.y[i_down]) i_down = ib;
-        if (mesh.y[ic] < mesh.y[i_down]) i_down = ic;
-        
-        var i_mid = ia;
-        if (i_mid == i_up) i_mid = ib;
-        if (i_mid == i_down) i_mid = ic;
         const pixel_size_y = 1.0 / @intToFloat(f32, win_height);
         const pixel_size_x = 1.0 / @intToFloat(f32, win_width);
         
-        rasterHalfTriangle(mesh, i_up, i_mid, i_down, ia, ib, ic, true);
-        rasterHalfTriangle(mesh, i_up, i_mid, i_down, ia, ib, ic, false);
+        switch (mode) {
+            .Points, .Lines => {
+                const pa_x = @floatToInt(i32, (mesh.x[ia] + 1) / (2 * pixel_size_x));
+                const pa_y = @floatToInt(i32, (-mesh.y[ia] + 1) / (2 * pixel_size_y));
+                
+                const pb_x = @floatToInt(i32, (mesh.x[ib] + 1) / (2 * pixel_size_x));
+                const pb_y = @floatToInt(i32, (-mesh.y[ib] + 1) / (2 * pixel_size_y));
+                
+                const pc_x = @floatToInt(i32, (mesh.x[ic] + 1) / (2 * pixel_size_x));
+                const pc_y = @floatToInt(i32, (-mesh.y[ic] + 1) / (2 * pixel_size_y));
+                
+                if (mode == .Points) {
+                    fillCircle(pa_x, pa_y, 5, mesh.colors[ia]);
+                    fillCircle(pb_x, pb_y, 5, mesh.colors[ib]);
+                    fillCircle(pc_x, pc_y, 5, mesh.colors[ic]);
+                } else {
+                    drawLine(pa_x, pa_y, pb_x, pb_y, mesh.colors[ia]);
+                    drawLine(pb_x, pb_y, pc_x, pc_y, mesh.colors[ib]);
+                    drawLine(pc_x, pc_y, pa_x, pa_y, mesh.colors[ic]);
+                }
+            },
+            .Faces => {
+                var i_up = ia;
+                if (mesh.y[ib] > mesh.y[i_up]) i_up = ib;
+                if (mesh.y[ic] > mesh.y[i_up]) i_up = ic;
+                
+                var i_down = ia;
+                if (mesh.y[ib] < mesh.y[i_down]) i_down = ib;
+                if (mesh.y[ic] < mesh.y[i_down]) i_down = ic;
+                
+                var i_mid = ia;
+                if (i_mid == i_up) i_mid = ib;
+                if (i_mid == i_down) i_mid = ic;
+                rasterHalfTriangle(mesh, i_up, i_mid, i_down, ia, ib, ic, true);
+                rasterHalfTriangle(mesh, i_up, i_mid, i_down, ia, ib, ic, false);
+            },
+        }
     }
 }
 
