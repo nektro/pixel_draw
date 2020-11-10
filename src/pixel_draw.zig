@@ -485,8 +485,109 @@ pub fn drawRect(x: i32, y: i32, w: u32, h: u32, color: Color) void {
     }
 }
 
-/// Draw a line from [xa, ya] to [xa, yb]
 pub fn drawLine(xa: i32, ya: i32, xb: i32, yb: i32, color: Color) void {
+    const xr = std.math.max(xa, xb);
+    const xl = std.math.min(xa, xb);
+    
+    const yu = std.math.min(ya, yb);
+    const yd = std.math.max(ya, yb);
+    
+    const x_dist = xr - xl;
+    const y_dist = yd - yu;
+    
+    if (x_dist < y_dist) {
+        var y = yu;
+        var dx = @intToFloat(f32, x_dist) / @intToFloat(f32, y_dist);  
+        
+        var x: f32 = 0.0;
+        if (ya == yu) {
+            x = @intToFloat(f32, xa);
+            if (xa == xr) dx = -dx;
+        } else {
+            x = @intToFloat(f32, xb);
+            if (xb == xr) dx = -dx;
+        }
+        
+        while (y <= yd) : (y += 1) {
+            putPixel(@floatToInt(i32, x), y, color);
+            x += dx;
+        }
+    } else {
+        var x = xl;
+        var dy = @intToFloat(f32, y_dist) / @intToFloat(f32, x_dist);  
+        
+        var y: f32 = 0.0;
+        if (xa == xl) {
+            y = @intToFloat(f32, ya);
+            if (ya == yd) dy = -dy;
+        } else {
+            y = @intToFloat(f32, yb);
+            if (yb == yd) dy = -dy;
+        }
+        
+        while (x <= xr) : (x += 1) {
+            putPixel(x, @floatToInt(i32, y), color);
+            y += dy;
+        }
+    }
+}
+
+pub fn drawLineWidth(xa: i32, ya: i32, xb: i32, yb: i32,
+                     color: Color, line_width: u32) void
+{
+    if (line_width == 1) {
+        drawLine(xa, ya, xb, yb, color);
+        return;
+    }
+    
+    const xr = std.math.max(xa, xb);
+    const xl = std.math.min(xa, xb);
+    
+    const yu = std.math.min(ya, yb);
+    const yd = std.math.max(ya, yb);
+    
+    const x_dist = xr - xl;
+    const y_dist = yd - yu;
+    
+    if (x_dist < y_dist) {
+        var y = yu;
+        var dx = @intToFloat(f32, x_dist) / @intToFloat(f32, y_dist);  
+        
+        var x: f32 = 0.0;
+        if (ya == yu) {
+            x = @intToFloat(f32, xa);
+            if (xa == xr) dx = -dx;
+        } else {
+            x = @intToFloat(f32, xb);
+            if (xb == xr) dx = -dx;
+        }
+        
+        while (y <= yd) : (y += 1) {
+            fillCircle(@floatToInt(i32, x), y, line_width / 2, color);
+            x += dx;
+        }
+    } else {
+        var x = xl;
+        var dy = @intToFloat(f32, y_dist) / @intToFloat(f32, x_dist);  
+        
+        var y: f32 = 0.0;
+        if (xa == xl) {
+            y = @intToFloat(f32, ya);
+            if (ya == yd) dy = -dy;
+        } else {
+            y = @intToFloat(f32, yb);
+            if (yb == yd) dy = -dy;
+        }
+        
+        while (x <= xr) : (x += 1) {
+            fillCircle(x, @floatToInt(i32, y), line_width / 2, color);
+            y += dy;
+        }
+    }
+}
+
+/// Draw a line from [xa, ya] to [xa, yb]
+pub fn drawLineOld(xa: i32, ya: i32, xb: i32, yb: i32, color: Color) void {
     var offset_x: i32 = 0;
     var offset_y: i32 = 0;
     var dx: i32 = 0;
@@ -668,13 +769,13 @@ pub fn rasterMesh(mesh: Mesh, mode: RasterMode) void {
                 const pc_y = @floatToInt(i32, (-mesh.y[ic] + 1) / (2 * pixel_size_y));
                 
                 if (mode == .Points) {
-                    fillCircle(pa_x, pa_y, 5, mesh.colors[ia]);
-                    fillCircle(pb_x, pb_y, 5, mesh.colors[ib]);
-                    fillCircle(pc_x, pc_y, 5, mesh.colors[ic]);
+                    fillCircle(pa_x, pa_y, 6, mesh.colors[ia]);
+                    fillCircle(pb_x, pb_y, 6, mesh.colors[ib]);
+                    fillCircle(pc_x, pc_y, 6, mesh.colors[ic]);
                 } else {
-                    drawLine(pa_x, pa_y, pb_x, pb_y, mesh.colors[ia]);
-                    drawLine(pb_x, pb_y, pc_x, pc_y, mesh.colors[ib]);
-                    drawLine(pc_x, pc_y, pa_x, pa_y, mesh.colors[ic]);
+                    drawLineWidth(pa_x, pa_y, pb_x, pb_y, mesh.colors[ia], 4);
+                    drawLineWidth(pb_x, pb_y, pc_x, pc_y, mesh.colors[ib], 4);
+                    drawLineWidth(pc_x, pc_y, pa_x, pa_y, mesh.colors[ic], 4);
                 }
             },
             .Faces => {
