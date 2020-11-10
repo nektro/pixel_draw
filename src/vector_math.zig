@@ -149,6 +149,10 @@ pub fn Vec3_normalize(v: Vec3) Vec3 {
     return result;
 }
 
+pub fn planeIntersect() Vec3 {
+    
+}
+
 pub const Bivec3 = struct {
     xy: f32,
     xz: f32,

@@ -293,14 +293,10 @@ pub const BitmapFont = struct {
     character_spacing: u32,
 };
 
-pub fn drawBitmapFont(
-                      text: []const u8,
-                      x: u32,
-                      y: u32,
-                      scale_x: u32,
-                      scale_y: u32,
-                      font: BitmapFont,
-                      ) void {
+pub fn drawBitmapFont(text: []const u8, x: u32, y: u32,
+                      scale_x: u32, scale_y: u32,
+                      font: BitmapFont) void
+{
     for (text) |t, i| {
         const char_index: u32 = t;
         const fx = char_index % 16 * font.font_size_x;
@@ -318,14 +314,10 @@ pub fn drawBitmapFont(
 }
 
 // TODO(Samuel): Optimize this function
-pub fn drawBitmapChar(
-                      char: u8,
-                      x: u32,
-                      y: u32,
-                      scale_x: u32,
-                      scale_y: u32,
-                      font: BitmapFont,
-                      ) void {
+pub fn drawBitmapChar(char: u8, x: u32, y: u32,
+                      scale_x: u32, scale_y: u32,
+                      font: BitmapFont) void
+{
     const fx = char % 16 * font.font_size_x;
     const fy = char / 16 * font.font_size_y;
     
@@ -341,14 +333,10 @@ pub fn drawBitmapChar(
             while (sy < scale_y) : (sy += 1) {
                 var sx: u32 = 0;
                 while (sx < scale_x) : (sx += 1) {
-                    putPixelRGBA(
-                                 x + xi * scale_x + sx,
+                    putPixelRGBA(x + xi * scale_x + sx,
                                  y + yi * scale_y + sy,
-                                 color[0],
-                                 color[1],
-                                 color[2],
-                                 color[3],
-                                 );
+                                 color[0], color[1],
+                                 color[2], color[3]);
                 }
             }
         }
@@ -677,12 +665,8 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, proj_matrix: [4][4]f32,
         // Lighting
         var dp: f32 = 0.0;
         {
-            var ld = [_]f32{0.0, 1.0, 1.0};
-            
-            const l = @sqrt(ld[0]*ld[0] + ld[1]*ld[1] + ld[2]*ld[2]);
-            ld[0] /= l; ld[1] /= l; ld[2] /= l;
-            
-            dp = n.x * ld[0] + n.y * ld[1] + n.z * ld[2];
+            var ld = Vec3_normalize(Vec3.c(0.0, 1.0, 1.0));
+            dp = Vec3_dot(ld, n);
             if (dp < 0.1) dp = 0.1;
         }
         
@@ -695,6 +679,11 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, proj_matrix: [4][4]f32,
                 triangles[i].pos = Vec3_sub(triangles[i].pos, cam.pos);
             }
             
+            // TODO(Samuel): Replace this with cliping
+            if (triangles[0].pos.z > -0.1 or
+                triangles[1].pos.z > -0.1 or
+                triangles[2].pos.z > -0.1) continue;
+            
             // Projection
             i = 0;
             while (i < 3) : (i += 1) {
@@ -706,11 +695,6 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, proj_matrix: [4][4]f32,
                 triangle_w[i] = new_w;
                 triangles[i].pos = Vec3_div_F(new_t, new_w);
             }
-            
-            // TODO(Samuel): Replace this with cliping
-            if (triangles[0].pos.z < 0.1 or
-                triangles[1].pos.z < 0.1 or
-                triangles[2].pos.z < 0.1) continue;
             
         }
         
