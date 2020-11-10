@@ -9,6 +9,8 @@ usingnamespace if (@import("builtin").os.tag == .windows)
 else
 @import("xlib_plataform.zig");
 
+usingnamespace @import("vector_math.zig");
+
 // ===== Input =====
 const MouseButtons = enum(u32) {
     zero = 0,
@@ -234,17 +236,6 @@ test "TGA_Read" {
     assert(@sizeOf(TGAHeader) == 18);
     _ = try loadTGA("potato.tga");
 }
-
-pub const Color = struct {
-    r: f32,
-    g: f32,
-    b: f32,
-    a: f32,
-    
-    pub inline fn c(r: f32, g: f32, b: f32, a: f32) Color {
-        return Color{ .r = r, .g = g, .b = b, .a = a };
-    }
-};
 
 pub inline fn putPixel(xi: i32, yi: i32, color: Color) void {
     if (xi > win_width - 1) return;
@@ -614,44 +605,39 @@ inline fn edgeFunctionI(xa: i32, ya: i32, xb: i32, yb: i32, xc: i32, yc: i32) i3
 }
 
 pub fn fillTriangle(xa: i32, ya: i32, xb: i32, yb: i32, xc: i32, yc: i32, color: Color) void {
+    const x_left  = math.min(math.min(xa, xb), math.max(xc, 0));
+    const x_right = math.max(math.max(xa, xb), math.min(xc, @intCast(i32, win_width)));
+    const y_up    = math.min(math.min(ya, yb), math.max(yc, 0));
+    const y_down  = math.max(math.max(ya, yb), math.min(yc, @intCast(i32, win_height)));
     
-    { // find bound box
-        const x_left  = math.min(math.min(xa, xb), xc);
-        const x_right = math.max(math.max(xa, xb), xc);
-        const y_up    = math.min(math.min(ya, yb), yc);
-        const y_down  = math.max(math.max(ya, yb), yc);
-        
-        var y: i32 = y_up;
-        while (y <= y_down) : (y += 1) {
-            var x: i32 = x_left;
-            while (x <= x_right) : (x += 1) {
-                const w0 = edgeFunctionI(xb, yb, xc, yc, x, y);
-                const w1 = edgeFunctionI(xc, yc, xa, ya, x, y);
-                const w2 = edgeFunctionI(xa, ya, xb, yb, x, y);
-                
-                if (w0 >= 0 and w1 >= 0 and w2 >= 0) {
-                    putPixel(x, y, color);
-                }
+    var y: i32 = y_up;
+    while (y < y_down) : (y += 1) {
+        var x: i32 = x_left;
+        while (x < x_right) : (x += 1) {
+            const w0 = edgeFunctionI(xb, yb, xc, yc, x, y);
+            const w1 = edgeFunctionI(xc, yc, xa, ya, x, y);
+            const w2 = edgeFunctionI(xa, ya, xb, yb, x, y);
+            
+            if (w0 >= 0 and w1 >= 0 and w2 >= 0) {
+                putPixel(x, y, color);
             }
         }
     }
 }
 
+pub inline fn drawTriangle(xa: i32, ya: i32, xb: i32, yb: i32, xc: i32, yc: i32,
+                           color: Color, line_width: u32) void
+{
+    drawLineWidth(xa, ya, xb, yb, color, line_width);
+    drawLineWidth(xb, yb, xc, yc, color, line_width);
+    drawLineWidth(xc, yc, xa, ya, color, line_width);
+}
+
 // ==== 3d struff ====
 
-pub const Vertex = struct {
-    pos: [3]f32,
-    color: Color,
-};
-
 pub const Mesh = struct {
-    x: []f32,
-    y: []f32,
-    z: []f32,
+    v: []Vertex,
     i: []u32,
-    u: []f32,
-    v: []f32,
-    colors: []const Color,
     texture: Texture,
 };
 
@@ -662,9 +648,7 @@ const RasterMode = enum {
 };
 
 pub const Camera3D = struct {
-    x: f32 = 0.0,
-    y: f32 = 0.0,
-    z: f32 = 0.0,
+    pos: Vec3 = .{},
 };
 
 pub fn drawMesh(mesh: Mesh, mode: RasterMode, proj_matrix: [4][4]f32,
@@ -676,40 +660,19 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, proj_matrix: [4][4]f32,
         const ib = mesh.i[index + 1];
         const ic = mesh.i[index + 2];
         
-        
-        var triangle_x = [_]f32 {mesh.x[ia], mesh.x[ib], mesh.x[ic]};
-        var triangle_y = [_]f32 {mesh.y[ia], mesh.y[ib], mesh.y[ic]};
-        var triangle_z = [_]f32 {mesh.z[ia], mesh.z[ib], mesh.z[ic]};
+        var triangles = [_]Vertex{mesh.v[ia], mesh.v[ib], mesh.v[ic]};
         var triangle_w = [_]f32 {1.0, 1.0, 1.0};
         
-        
         // Calculate normal
-        var nx: f32 = 0;
-        var ny: f32 = 0;
-        var nz: f32 = 0;
+        var n = Vec3{};
         {
-            const ax = triangle_x[1] - triangle_x[0];
-            const ay = triangle_y[1] - triangle_y[0];
-            const az = triangle_z[1] - triangle_z[0];
-            
-            const bx = triangle_x[2] - triangle_x[0];
-            const by = triangle_y[2] - triangle_y[0];
-            const bz = triangle_z[2] - triangle_z[0];
-            
-            nx = ay*bz - az*by;
-            ny = az*bx - ax*bz;
-            nz = ax*by - ay*bx;
-            
-            const l = @sqrt(nx*nx + ny*ny + nz*nz);
-            
-            nx /= l;
-            ny /= l;
-            nz /= l;
+            const a = Vec3_sub(triangles[1].pos, triangles[0].pos);
+            const b = Vec3_sub(triangles[2].pos, triangles[0].pos);
+            n = Vec3_normalize( Vec3_cross(a, b) );
         }
         
-        if (nx * (triangle_x[0] - cam.x) +
-            ny * (triangle_y[0] - cam.y) +
-            nz * (triangle_z[0] - cam.z) > 0.0) continue;
+        const face_normal_dir = Vec3_dot(n, Vec3_sub(triangles[0].pos, cam.pos));
+        if (face_normal_dir > 0.0) continue;
         
         // Lighting
         var dp: f32 = 0.0;
@@ -719,69 +682,67 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, proj_matrix: [4][4]f32,
             const l = @sqrt(ld[0]*ld[0] + ld[1]*ld[1] + ld[2]*ld[2]);
             ld[0] /= l; ld[1] /= l; ld[2] /= l;
             
-            dp = nx * ld[0] + ny * ld[1] + nz * ld[2];
+            dp = n.x * ld[0] + n.y * ld[1] + n.z * ld[2];
             if (dp < 0.1) dp = 0.1;
         }
         
         
-        // Project
         {
             var i: u32 = 0;
+            
+            // Camera Translate
             while (i < 3) : (i += 1) {
-                
-                // Camera Translate
-                {
-                    triangle_x[i] -= cam.x;
-                    triangle_y[i] -= cam.y;
-                    triangle_z[i] -= cam.z;
-                }
-                
-                const new_x = proj_matrix[0][0] * triangle_x[i];
-                const new_y = proj_matrix[1][1] * triangle_y[i];
-                const new_z = proj_matrix[2][2] * triangle_z[i] + proj_matrix[2][3];
-                const new_w = proj_matrix[3][2] * triangle_z[i] + proj_matrix[3][3];
-                triangle_w[i] = new_w;
-                triangle_x[i] = new_x / new_w;
-                triangle_y[i] = new_y / new_w;
-                triangle_z[i] = new_z / new_w;
+                triangles[i].pos = Vec3_sub(triangles[i].pos, cam.pos);
             }
+            
+            // Projection
+            i = 0;
+            while (i < 3) : (i += 1) {
+                var new_t = Vec3{};
+                new_t.x = proj_matrix[0][0] * triangles[i].pos.x;
+                new_t.y = proj_matrix[1][1] * triangles[i].pos.y;
+                new_t.z = proj_matrix[2][2] * triangles[i].pos.z + proj_matrix[2][3];
+                const new_w = proj_matrix[3][2] * triangles[i].pos.z + proj_matrix[3][3];
+                triangle_w[i] = new_w;
+                triangles[i].pos = Vec3_div_F(new_t, new_w);
+            }
+            
+            // TODO(Samuel): Replace this with cliping
+            if (triangles[0].pos.z < 0.1 or
+                triangles[1].pos.z < 0.1 or
+                triangles[2].pos.z < 0.1) continue;
+            
         }
         
         const pixel_size_y = 1.0 / @intToFloat(f32, win_height);
         const pixel_size_x = 1.0 / @intToFloat(f32, win_width);
         
-        const pa_x = @floatToInt(i32, (triangle_x[0] + 1) / (2 * pixel_size_x));
-        const pa_y = @floatToInt(i32, (-triangle_y[0] + 1) / (2 * pixel_size_y));
+        const pa_x = @floatToInt(i32, (triangles[0].pos.x + 1) / (2 * pixel_size_x));
+        const pa_y = @floatToInt(i32, (-triangles[0].pos.y + 1) / (2 * pixel_size_y));
         
-        const pb_x = @floatToInt(i32, (triangle_x[1] + 1) / (2 * pixel_size_x));
-        const pb_y = @floatToInt(i32, (-triangle_y[1] + 1) / (2 * pixel_size_y));
+        const pb_x = @floatToInt(i32, (triangles[1].pos.x + 1) / (2 * pixel_size_x));
+        const pb_y = @floatToInt(i32, (-triangles[1].pos.y + 1) / (2 * pixel_size_y));
         
-        const pc_x = @floatToInt(i32, (triangle_x[2] + 1) / (2 * pixel_size_x));
-        const pc_y = @floatToInt(i32, (-triangle_y[2] + 1) / (2 * pixel_size_y));
+        const pc_x = @floatToInt(i32, (triangles[2].pos.x + 1) / (2 * pixel_size_x));
+        const pc_y = @floatToInt(i32, (-triangles[2].pos.y + 1) / (2 * pixel_size_y));
         
         switch (mode) {
-            .Points, .Lines => {
-                if (mode == .Points) {
-                    fillCircle(pa_x, pa_y, 6, mesh.colors[ia]);
-                    fillCircle(pb_x, pb_y, 6, mesh.colors[ib]);
-                    fillCircle(pc_x, pc_y, 6, mesh.colors[ic]);
-                } else {
-                    //const line_color = mesh.colors[ia];
-                    const line_color = Color.c(1, 1, 1, 1);
-                    
-                    drawLineWidth(pa_x, pa_y, pb_x, pb_y, line_color, 4);
-                    drawLineWidth(pb_x, pb_y, pc_x, pc_y, line_color, 4);
-                    drawLineWidth(pc_x, pc_y, pa_x, pa_y, line_color, 4);
-                }
+            .Points => {
+                fillCircle(pa_x, pa_y, 5, triangles[0].color);
+                fillCircle(pb_x, pb_y, 5, triangles[1].color);
+                fillCircle(pc_x, pc_y, 5, triangles[2].color);
+                
+            },
+            .Lines => {
+                const line_color = Color.c(1, 1, 1, 1);
+                drawTriangle(pa_x, pa_y, pb_x, pb_y, pc_x, pc_y, line_color, 1);
             },
             .Faces => {
-                var color = mesh.colors[ia];
+                var color = triangles[0].color;
                 color.r *= dp;
                 color.g *= dp;
                 color.b *= dp;
                 fillTriangle(pa_x, pa_y, pb_x, pb_y, pc_x, pc_y, color);
-                //rasterHalfTriangle(mesh, i_up, i_mid, i_down, ia, ib, ic, true);
-                //rasterHalfTriangle(mesh, i_up, i_mid, i_down, ia, ib, ic, false);
             },
         }
     }

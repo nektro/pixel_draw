@@ -6,6 +6,7 @@ const fs = std.fs;
 const math = std.math;
 
 usingnamespace @import("util.zig");
+usingnamespace @import("vector_math.zig");
 const draw = @import("pixel_draw.zig");
 const Texture = draw.Texture;
 
@@ -59,14 +60,20 @@ fn update(delta: f32) void {
     
     draw.fillScreenWithRGBColor(50, 100, 150);
     
-    { // Show fps
-        const fpst = std.fmt.bufPrint(&print_buff, "{d:0.4}/{d:0.4}", .{ 1 / delta, delta }) catch unreachable;
-        draw.drawBitmapFont(fpst, 20, 20, 1, 1, font);
-    }
-    
     var mx = [_]f32{-0.5, 0.5, -0.5,  0.5, -0.5,  0.5, -0.5,  0.5};
     var my = [_]f32{ 0.5, 0.5, -0.5, -0.5,  0.5,  0.5, -0.5, -0.5};
     var mz = [_]f32{ 0.5, 0.5,  0.5,  0.5, -0.5, -0.5, -0.5, -0.5};
+    
+    var vertices = [_]Vertex {
+        Vertex.c(Vec3.c(-0.5,  0.5,  0.5), Color.c(0.5, 0.5, 0.5, 1), .{}),
+        Vertex.c(Vec3.c( 0.5,  0.5,  0.5), Color.c(0, 0, 1, 1), .{}),
+        Vertex.c(Vec3.c(-0.5, -0.5,  0.5), Color.c(0, 1, 0, 1), .{}),
+        Vertex.c(Vec3.c( 0.5, -0.5,  0.5), Color.c(0, 1, 1, 1), .{}),
+        Vertex.c(Vec3.c(-0.5,  0.5, -0.5), Color.c(1, 0, 0, 1), .{}),
+        Vertex.c(Vec3.c( 0.5,  0.5, -0.5), Color.c(1, 0, 1, 1), .{}),
+        Vertex.c(Vec3.c(-0.5, -0.5, -0.5), Color.c(1, 1, 0, 1), .{}),
+        Vertex.c(Vec3.c( 0.5, -0.5, -0.5), Color.c(1, 1, 1, 1), .{}),
+    };
     
     var mi = [_]u32{
         0, 2, 3,
@@ -81,19 +88,6 @@ fn update(delta: f32) void {
         6, 7, 3,
         5, 7, 6,
         5, 6, 4,
-    };
-    var mu = [_]f32{ 0.5, 0.0, 1.0, 0.5 };
-    var mv = [_]f32{ 0.0, 1.0, 1.0, 0.5 };
-    
-    var mcolors = [_]draw.Color{
-        draw.Color.c(0.5, 0.5, 0.5, 1),
-        draw.Color.c(0, 0, 1, 1),
-        draw.Color.c(0, 1, 0, 1),
-        draw.Color.c(0, 1, 1, 1),
-        draw.Color.c(1, 0, 0, 1),
-        draw.Color.c(1, 0, 1, 1),
-        draw.Color.c(1, 1, 0, 1),
-        draw.Color.c(1, 1, 1, 1),
     };
     
     // NOTE(Samuel): Mesh Transformation
@@ -111,36 +105,34 @@ fn update(delta: f32) void {
     if (draw.keyPressed(.left)) theta -= delta;
     
     var mesh = draw.Mesh{
-        .x = &mx,
-        .y = &my,
-        .z = &mz,
+        .v = &vertices,
         .i = &mi,
-        .u = &mu,
-        .v = &mv,
-        .colors = &mcolors,
         .texture = potato,
     };
     
     var i: u32 = 0;
-    while (i < mesh.x.len) : (i += 1) {
+    while (i < mesh.v.len) : (i += 1) {
         // Rotate in Y
-        {
-            const new_x = mesh.x[i] * @cos(theta) + mesh.z[i] * @sin(theta);
-            const new_z = -mesh.x[i] * @sin(theta) + mesh.z[i] * @cos(theta);
-            mesh.x[i] = new_x;
-            mesh.z[i] = new_z;
-        }
+        const new_x = mesh.v[i].pos.x * @cos(theta) + mesh.v[i].pos.z * @sin(theta);
+        const new_z = -mesh.v[i].pos.x * @sin(theta) + mesh.v[i].pos.z * @cos(theta);
+        mesh.v[i].pos.x = new_x;
+        mesh.v[i].pos.z = new_z;
     }
     
     const cam = draw.Camera3D{
-        .x = t_x,
-        .y = t_y,
-        .z = t_z,
+        .pos = Vec3.c(t_x, t_y, t_z),
     };
     
     draw.drawMesh(mesh, .Faces, matrix, cam);
     draw.drawMesh(mesh, .Lines, matrix, cam);
     draw.drawMesh(mesh, .Points, matrix, cam);
+    
+    
+    
+    { // Show fps
+        const fpst = std.fmt.bufPrint(&print_buff, "{d:0.4}/{d:0.4}", .{ 1 / delta, delta }) catch unreachable;
+        draw.drawBitmapFont(fpst, 20, 20, 1, 1, font);
+    }
 }
 
 var t_x: f32 = 0.0; 
