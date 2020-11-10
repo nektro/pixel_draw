@@ -92,14 +92,14 @@ fn update(delta: f32) void {
     
     // NOTE(Samuel): Mesh Transformation
     
-    if (draw.keyPressed(.d)) t_x += delta; 
-    if (draw.keyPressed(.a)) t_x -= delta; 
+    if (draw.keyPressed(.d)) cam.pos.x += delta; 
+    if (draw.keyPressed(.a)) cam.pos.x -= delta; 
     
-    if (draw.keyPressed(.w)) t_y += delta; 
-    if (draw.keyPressed(.s)) t_y -= delta; 
+    if (draw.keyPressed(.w)) cam.pos.y += delta; 
+    if (draw.keyPressed(.s)) cam.pos.y -= delta; 
     
-    if (draw.keyPressed(.up)) t_z -= delta; 
-    if (draw.keyPressed(.down)) t_z += delta;
+    if (draw.keyPressed(.up)) cam.pos.z -= delta; 
+    if (draw.keyPressed(.down)) cam.pos.z += delta;
     
     if (draw.keyPressed(.right)) theta += delta;
     if (draw.keyPressed(.left)) theta -= delta;
@@ -119,15 +119,9 @@ fn update(delta: f32) void {
         mesh.v[i].pos.z = new_z;
     }
     
-    const cam = draw.Camera3D{
-        .pos = Vec3.c(t_x, t_y, t_z),
-    };
-    
     draw.drawMesh(mesh, .Faces, matrix, cam);
     draw.drawMesh(mesh, .Lines, matrix, cam);
     draw.drawMesh(mesh, .Points, matrix, cam);
-    
-    
     
     { // Show fps
         const fpst = std.fmt.bufPrint(&print_buff, "{d:0.4}/{d:0.4}", .{ 1 / delta, delta }) catch unreachable;
@@ -135,7 +129,6 @@ fn update(delta: f32) void {
     }
 }
 
-var t_x: f32 = 0.0; 
-var t_y: f32 = 0.0; 
-var t_z: f32 = 2.0;
+var cam: draw.Camera3D = .{.pos = .{.z = 2.0}};
+
 var theta: f32 = 0.0;

@@ -149,3 +149,8 @@ pub fn Vec3_normalize(v: Vec3) Vec3 {
     return result;
 }
 
+pub const Bivec3 = struct {
+    xy: f32,
+    xz: f32,
+    yz: f32,
+};

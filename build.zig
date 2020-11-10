@@ -24,7 +24,7 @@ pub fn build(b: *Builder) void {
     if (strip)
         exe.strip = true;
 
-    if (@import("builtin").os.tag != .windows) {
+    if (!windows) {
         exe.linkSystemLibrary("c");
         exe.linkSystemLibrary("X11");
     }

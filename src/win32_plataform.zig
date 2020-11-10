@@ -119,10 +119,17 @@ const VirtualKeys = struct {
     pub const TAB = 0x09;
     pub const ZOOM = 0xFB;
     
+    //pub const DOWN = 0x25;
+    //pub const LEFT = 0x26;
+    //pub const UP = 0x27;
+    //pub const RIGHT = 0x28;
+    
     pub const LEFT = 0x25;
-    pub const RIGHT = 0x26;
-    pub const DOWN = 0x27;
-    pub const UP = 0x28;
+    pub const UP = 0x26;
+    pub const RIGHT = 0x27;
+    pub const DOWN = 0x28;
+    
+    
 };
 
 
@@ -199,6 +206,7 @@ const keymap = [_]u32{
     VirtualKeys.KEY_7,
     VirtualKeys.KEY_8,
     VirtualKeys.KEY_9,
+    VirtualKeys.KEY_0,
     
     VirtualKeys.UP,
     VirtualKeys.DOWN,

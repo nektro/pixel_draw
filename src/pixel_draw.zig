@@ -891,8 +891,6 @@ fn rasterHalfTriangleButIsAVeryBadImplementation(mesh: Mesh, i_up: u32, i_mid: u
                 w0 /= w_sum;
                 w1 /= w_sum;
                 w2 /= w_sum;
-                
-                
             }
             const one_over_z_4x = w0 * (one_4x / mesh_z_ia_4x) + w1 * (one_4x / mesh_z_ib_4x) + w2 * (one_4x / mesh_z_ic_4x);
             
