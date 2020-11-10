@@ -46,53 +46,74 @@ const near: f32 = 0.1;
 const far: f32 = 100.0;
 const fov: f32 = 70.0;
 const S: f32 = 1 / (std.math.tan(fov * 3.1415926535 / 90.0));
-const matrix = [4][4]f32{
-    .{S,  0,  0,  0},
-    .{0,  S,  0,  0},
+var matrix = [4][4]f32{
+    .{-S,  0,  0,  0},
+    .{0,  -S,  0,  0},
     .{0,  0, -(far / (far - near)),  -(far * near / (far - near))},
     .{0,  0, -1, 0},
 };
 
 fn update(delta: f32) void {
-    draw.fillScreenWithRGBColor(100, 100, 100);
+    // Update perspective matrix with the aspect ratio
+    matrix[0][0] = -S * (@intToFloat(f32, draw.win_height) / @intToFloat(f32, draw.win_width));
+    
+    draw.fillScreenWithRGBColor(50, 100, 150);
     
     { // Show fps
         const fpst = std.fmt.bufPrint(&print_buff, "{d:0.4}/{d:0.4}", .{ 1 / delta, delta }) catch unreachable;
         draw.drawBitmapFont(fpst, 20, 20, 1, 1, font);
     }
     
-    var mx = [_]f32{ 0.0, -0.5, 0.5,  0.0 };
-    var my = [_]f32{ 0.37, -0.5, -0.5, -0.5 };
-    var mz = [_]f32{-0.0, -0.0, -0.0, -0.87 };
-    var mw = [_]f32{ 1.0, 1.0, 1.0, 1.0 };
+    var mx = [_]f32{-0.5, 0.5, -0.5,  0.5, -0.5,  0.5, -0.5,  0.5};
+    var my = [_]f32{ 0.5, 0.5, -0.5, -0.5,  0.5,  0.5, -0.5, -0.5};
+    var mz = [_]f32{ 0.5, 0.5,  0.5,  0.5, -0.5, -0.5, -0.5, -0.5};
     
-    var mi = [_]u32{ 0, 1, 2, 0, 1, 3, 3, 0, 2, 1, 2, 3, 1, 3, 2};
+    var mi = [_]u32{
+        0, 2, 3,
+        0, 3, 1,
+        1, 3, 7,
+        1, 7, 5,
+        4, 0, 1,
+        4, 1, 5,
+        4, 6, 2,
+        4, 2, 0,
+        6, 3, 2,
+        6, 7, 3,
+        5, 7, 6,
+        5, 6, 4,
+    };
     var mu = [_]f32{ 0.5, 0.0, 1.0, 0.5 };
     var mv = [_]f32{ 0.0, 1.0, 1.0, 0.5 };
     
     var mcolors = [_]draw.Color{
-        draw.Color.c(1, 0, 0, 1),
-        draw.Color.c(0, 1, 0, 1),
+        draw.Color.c(0.5, 0.5, 0.5, 1),
         draw.Color.c(0, 0, 1, 1),
+        draw.Color.c(0, 1, 0, 1),
+        draw.Color.c(0, 1, 1, 1),
+        draw.Color.c(1, 0, 0, 1),
         draw.Color.c(1, 0, 1, 1),
+        draw.Color.c(1, 1, 0, 1),
+        draw.Color.c(1, 1, 1, 1),
     };
     
     // NOTE(Samuel): Mesh Transformation
     
-    if (draw.keyPressed(.d)) t_x -= delta; 
-    if (draw.keyPressed(.a)) t_x += delta; 
+    if (draw.keyPressed(.d)) t_x += delta; 
+    if (draw.keyPressed(.a)) t_x -= delta; 
     
-    if (draw.keyPressed(.w)) t_y -= delta; 
-    if (draw.keyPressed(.s)) t_y += delta; 
+    if (draw.keyPressed(.w)) t_y += delta; 
+    if (draw.keyPressed(.s)) t_y -= delta; 
     
-    if (draw.keyPressed(.up)) t_z += delta; 
-    if (draw.keyPressed(.down)) t_z -= delta; 
+    if (draw.keyPressed(.up)) t_z -= delta; 
+    if (draw.keyPressed(.down)) t_z += delta;
+    
+    if (draw.keyPressed(.right)) theta += delta;
+    if (draw.keyPressed(.left)) theta -= delta;
     
     var mesh = draw.Mesh{
         .x = &mx,
         .y = &my,
         .z = &mz,
-        .w = &mw,
         .i = &mi,
         .u = &mu,
         .v = &mv,
@@ -102,23 +123,27 @@ fn update(delta: f32) void {
     
     var i: u32 = 0;
     while (i < mesh.x.len) : (i += 1) {
-        mesh.z[i] += t_z;
-        const new_x = matrix[0][0] * mesh.x[i] + t_x;
-        const new_y = matrix[1][1] * mesh.y[i] + t_y;
-        const new_z = matrix[2][2] * mesh.z[i] + matrix[2][3];
-        mesh.w[i] = matrix[3][2] * mesh.z[i] + matrix[3][3];
-        mesh.x[i] = new_x / mesh.w[i];
-        mesh.y[i] = new_y / mesh.w[i];
-        mesh.z[i] = new_z / mesh.w[i];
+        // Rotate in Y
+        {
+            const new_x = mesh.x[i] * @cos(theta) + mesh.z[i] * @sin(theta);
+            const new_z = -mesh.x[i] * @sin(theta) + mesh.z[i] * @cos(theta);
+            mesh.x[i] = new_x;
+            mesh.z[i] = new_z;
+        }
     }
     
-    // TODO(Samuel): Cliping
+    const cam = draw.Camera3D{
+        .x = t_x,
+        .y = t_y,
+        .z = t_z,
+    };
     
-    draw.rasterMesh(mesh, .Points);
-    draw.rasterMesh(mesh, .Lines);
-    draw.rasterMesh(mesh, .Faces);
+    draw.drawMesh(mesh, .Faces, matrix, cam);
+    draw.drawMesh(mesh, .Lines, matrix, cam);
+    draw.drawMesh(mesh, .Points, matrix, cam);
 }
 
 var t_x: f32 = 0.0; 
 var t_y: f32 = 0.0; 
-var t_z: f32 = -2.0; 
+var t_z: f32 = 2.0;
+var theta: f32 = 0.0;

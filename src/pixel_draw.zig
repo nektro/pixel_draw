@@ -50,6 +50,8 @@ const Keys = enum(u32) {
     _0 = 16,
     up = 17,
     down = 18,
+    left = 19,
+    right = 20,
 };
 
 pub inline fn keyDown(key: Keys) bool {
@@ -586,65 +588,6 @@ pub fn drawLineWidth(xa: i32, ya: i32, xb: i32, yb: i32,
     }
 }
 
-/// Draw a line from [xa, ya] to [xa, yb]
-pub fn drawLineOld(xa: i32, ya: i32, xb: i32, yb: i32, color: Color) void {
-    var offset_x: i32 = 0;
-    var offset_y: i32 = 0;
-    var dx: i32 = 0;
-    var dy: i32 = 0;
-    
-    var px_mult: i32 = 1;
-    var py_mult: i32 = 1;
-    
-    if (xa > xb) {
-        offset_x = xb;
-        dx = xa - xb;
-        if (ya < yb) {
-            px_mult = -1;
-            offset_x = xa;
-        }
-    } else {
-        offset_x = xa;
-        dx = xb - xa;
-    }
-    
-    if (ya > yb) {
-        offset_y = yb;
-        dy = ya - yb;
-        if (xa < xb) {
-            py_mult = -1;
-            offset_y = ya;
-        }
-    } else {
-        offset_y = ya;
-        dy = yb - ya;
-    }
-    
-    var px: i32 = 0;
-    var py: i32 = 0;
-    
-    var x: i32 = 0;
-    var y: i32 = 0;
-    while (px <= dx and py <= dy) {
-        const pixel_x = px * px_mult + offset_x;
-        const pixel_y = py * py_mult + offset_y;
-        
-        if (pixel_x >= 0 and pixel_y >= 0)
-            putPixel(pixel_x, pixel_y, color);
-        
-        const d1 = i32Abs(x - y + dy - dx);
-        const d2 = i32Abs(x - y - 2 * dx);
-        
-        if (d2 < d1) {
-            py += 1;
-            y += dx;
-        } else {
-            px += 1;
-            x += dy;
-        }
-    }
-}
-
 pub fn fillScreenWithRGBColor(r: u8, g: u8, b: u8) void {
     var index: usize = 0;
     while (index < screen_buffer.len) : (index += 4) {
@@ -662,6 +605,38 @@ pub inline fn f32Frac(n: f32) f32 {
     return n - @trunc(n);
 }
 
+inline fn edgeFunction(xa: f32, ya: f32, xb: f32, yb: f32, xc: f32, yc: f32) f32 {
+    return (xc - xa) * (yb - ya) - (yc - ya) * (xb - xa);
+}
+
+inline fn edgeFunctionI(xa: i32, ya: i32, xb: i32, yb: i32, xc: i32, yc: i32) i32 {
+    return (xc - xa) * (yb - ya) - (yc - ya) * (xb - xa);
+}
+
+pub fn fillTriangle(xa: i32, ya: i32, xb: i32, yb: i32, xc: i32, yc: i32, color: Color) void {
+    
+    { // find bound box
+        const x_left  = math.min(math.min(xa, xb), xc);
+        const x_right = math.max(math.max(xa, xb), xc);
+        const y_up    = math.min(math.min(ya, yb), yc);
+        const y_down  = math.max(math.max(ya, yb), yc);
+        
+        var y: i32 = y_up;
+        while (y <= y_down) : (y += 1) {
+            var x: i32 = x_left;
+            while (x <= x_right) : (x += 1) {
+                const w0 = edgeFunctionI(xb, yb, xc, yc, x, y);
+                const w1 = edgeFunctionI(xc, yc, xa, ya, x, y);
+                const w2 = edgeFunctionI(xa, ya, xb, yb, x, y);
+                
+                if (w0 >= 0 and w1 >= 0 and w2 >= 0) {
+                    putPixel(x, y, color);
+                }
+            }
+        }
+    }
+}
+
 // ==== 3d struff ====
 
 pub const Vertex = struct {
@@ -673,7 +648,6 @@ pub const Mesh = struct {
     x: []f32,
     y: []f32,
     z: []f32,
-    w: []f32,
     i: []u32,
     u: []f32,
     v: []f32,
@@ -681,118 +655,133 @@ pub const Mesh = struct {
     texture: Texture,
 };
 
-pub fn rasterTriangle(vert1: [2]f32, vert2: [2]f32, vert3: [2]f32, color: Color) void {
-    
-    var up_vert = vert1;
-    if (vert2[1] < up_vert[1]) up_vert = vert2;
-    if (vert3[1] < up_vert[1]) up_vert = vert3;
-    
-    var down_vert = vert1;
-    if (vert2[1] > down_vert[1]) down_vert = vert2;
-    if (vert3[1] > down_vert[1]) down_vert = vert3;
-    
-    var mid_vert = vert1;
-    if (mid_vert[0] == up_vert[0] and mid_vert[1] == up_vert[1] or
-        mid_vert[0] == down_vert[0] and mid_vert[1] == down_vert[1])
-    {
-        mid_vert = vert2;
-    }
-    
-    if (mid_vert[0] == up_vert[0] and mid_vert[1] == up_vert[1] or
-        mid_vert[0] == down_vert[0] and mid_vert[1] == down_vert[1])
-    {
-        mid_vert = vert3;
-    }
-    
-    const atan1 = (down_vert[0] - up_vert[0]) / (down_vert[1] - up_vert[1]);
-    const atan2 = (mid_vert[0] - up_vert[0]) / (mid_vert[1] - up_vert[1]);
-    const atan3 = (down_vert[0] - mid_vert[0]) / (down_vert[1] - mid_vert[1]);
-    
-    const pixel_size_y = 1.0 / @intToFloat(f32, win_height);
-    const pixel_size_x = 1.0 / @intToFloat(f32, win_width);
-    const dir: i32 = if (mid_vert[0] > down_vert[0]) 1 else -1;
-    
-    var y: f32 = up_vert[1];
-    while (y < mid_vert[1]) : (y += pixel_size_y) {
-        const x = (y - up_vert[1]) * atan1 + up_vert[0];
-        const x2 = (y - up_vert[1]) * atan2 + up_vert[0];
-        
-        const yp = @floatToInt(i32, (y  + 1) * 0.5 / pixel_size_y);
-        const xp2 = @floatToInt(i32,(x2 + 1) * 0.5 * @intToFloat(f32, win_width));
-        
-        var xp = @floatToInt(i32, (x  + 1) * 0.5 / pixel_size_x);
-        while (xp != xp2 and xp < win_width and xp >= 0) : (xp += dir) {
-            putPixel(xp, yp, color);
-            putPixel(xp2, yp, color);
-        }
-    }
-    while (y < down_vert[1]) : (y += pixel_size_y) {
-        const x = (y - up_vert[1]) * atan1 + up_vert[0];
-        const x2 = (y - mid_vert[1]) * atan3 + mid_vert[0];
-        
-        const yp = @floatToInt(i32, (y  + 1) * 0.5 / pixel_size_y);
-        const xp2 = @floatToInt(i32,(x2 + 1) * 0.5 * @intToFloat(f32, win_width));
-        
-        var xp = @floatToInt(i32, (x  + 1) * 0.5 / pixel_size_x);
-        while (xp != xp2) : (xp += dir) {
-            putPixel(xp, yp, color);
-            putPixel(xp2, yp, color);
-        }
-    }
-}
-
 const RasterMode = enum {
     Points,
     Lines,
     Faces,
 };
 
-pub fn rasterMesh(mesh: Mesh, mode: RasterMode) void {
+pub const Camera3D = struct {
+    x: f32 = 0.0,
+    y: f32 = 0.0,
+    z: f32 = 0.0,
+};
+
+pub fn drawMesh(mesh: Mesh, mode: RasterMode, proj_matrix: [4][4]f32,
+                cam: Camera3D) void
+{
     var index: u32 = 0;
     while (index < mesh.i.len - 2) : (index += 3) {
         const ia = mesh.i[index];
         const ib = mesh.i[index + 1];
         const ic = mesh.i[index + 2];
         
+        
+        var triangle_x = [_]f32 {mesh.x[ia], mesh.x[ib], mesh.x[ic]};
+        var triangle_y = [_]f32 {mesh.y[ia], mesh.y[ib], mesh.y[ic]};
+        var triangle_z = [_]f32 {mesh.z[ia], mesh.z[ib], mesh.z[ic]};
+        var triangle_w = [_]f32 {1.0, 1.0, 1.0};
+        
+        
+        // Calculate normal
+        var nx: f32 = 0;
+        var ny: f32 = 0;
+        var nz: f32 = 0;
+        {
+            const ax = triangle_x[1] - triangle_x[0];
+            const ay = triangle_y[1] - triangle_y[0];
+            const az = triangle_z[1] - triangle_z[0];
+            
+            const bx = triangle_x[2] - triangle_x[0];
+            const by = triangle_y[2] - triangle_y[0];
+            const bz = triangle_z[2] - triangle_z[0];
+            
+            nx = ay*bz - az*by;
+            ny = az*bx - ax*bz;
+            nz = ax*by - ay*bx;
+            
+            const l = @sqrt(nx*nx + ny*ny + nz*nz);
+            
+            nx /= l;
+            ny /= l;
+            nz /= l;
+        }
+        
+        if (nx * (triangle_x[0] - cam.x) +
+            ny * (triangle_y[0] - cam.y) +
+            nz * (triangle_z[0] - cam.z) > 0.0) continue;
+        
+        // Lighting
+        var dp: f32 = 0.0;
+        {
+            var ld = [_]f32{0.0, 1.0, 1.0};
+            
+            const l = @sqrt(ld[0]*ld[0] + ld[1]*ld[1] + ld[2]*ld[2]);
+            ld[0] /= l; ld[1] /= l; ld[2] /= l;
+            
+            dp = nx * ld[0] + ny * ld[1] + nz * ld[2];
+            if (dp < 0.1) dp = 0.1;
+        }
+        
+        
+        // Project
+        {
+            var i: u32 = 0;
+            while (i < 3) : (i += 1) {
+                
+                // Camera Translate
+                {
+                    triangle_x[i] -= cam.x;
+                    triangle_y[i] -= cam.y;
+                    triangle_z[i] -= cam.z;
+                }
+                
+                const new_x = proj_matrix[0][0] * triangle_x[i];
+                const new_y = proj_matrix[1][1] * triangle_y[i];
+                const new_z = proj_matrix[2][2] * triangle_z[i] + proj_matrix[2][3];
+                const new_w = proj_matrix[3][2] * triangle_z[i] + proj_matrix[3][3];
+                triangle_w[i] = new_w;
+                triangle_x[i] = new_x / new_w;
+                triangle_y[i] = new_y / new_w;
+                triangle_z[i] = new_z / new_w;
+            }
+        }
+        
         const pixel_size_y = 1.0 / @intToFloat(f32, win_height);
         const pixel_size_x = 1.0 / @intToFloat(f32, win_width);
         
+        const pa_x = @floatToInt(i32, (triangle_x[0] + 1) / (2 * pixel_size_x));
+        const pa_y = @floatToInt(i32, (-triangle_y[0] + 1) / (2 * pixel_size_y));
+        
+        const pb_x = @floatToInt(i32, (triangle_x[1] + 1) / (2 * pixel_size_x));
+        const pb_y = @floatToInt(i32, (-triangle_y[1] + 1) / (2 * pixel_size_y));
+        
+        const pc_x = @floatToInt(i32, (triangle_x[2] + 1) / (2 * pixel_size_x));
+        const pc_y = @floatToInt(i32, (-triangle_y[2] + 1) / (2 * pixel_size_y));
+        
         switch (mode) {
             .Points, .Lines => {
-                const pa_x = @floatToInt(i32, (mesh.x[ia] + 1) / (2 * pixel_size_x));
-                const pa_y = @floatToInt(i32, (-mesh.y[ia] + 1) / (2 * pixel_size_y));
-                
-                const pb_x = @floatToInt(i32, (mesh.x[ib] + 1) / (2 * pixel_size_x));
-                const pb_y = @floatToInt(i32, (-mesh.y[ib] + 1) / (2 * pixel_size_y));
-                
-                const pc_x = @floatToInt(i32, (mesh.x[ic] + 1) / (2 * pixel_size_x));
-                const pc_y = @floatToInt(i32, (-mesh.y[ic] + 1) / (2 * pixel_size_y));
-                
                 if (mode == .Points) {
                     fillCircle(pa_x, pa_y, 6, mesh.colors[ia]);
                     fillCircle(pb_x, pb_y, 6, mesh.colors[ib]);
                     fillCircle(pc_x, pc_y, 6, mesh.colors[ic]);
                 } else {
-                    drawLineWidth(pa_x, pa_y, pb_x, pb_y, mesh.colors[ia], 4);
-                    drawLineWidth(pb_x, pb_y, pc_x, pc_y, mesh.colors[ib], 4);
-                    drawLineWidth(pc_x, pc_y, pa_x, pa_y, mesh.colors[ic], 4);
+                    //const line_color = mesh.colors[ia];
+                    const line_color = Color.c(1, 1, 1, 1);
+                    
+                    drawLineWidth(pa_x, pa_y, pb_x, pb_y, line_color, 4);
+                    drawLineWidth(pb_x, pb_y, pc_x, pc_y, line_color, 4);
+                    drawLineWidth(pc_x, pc_y, pa_x, pa_y, line_color, 4);
                 }
             },
             .Faces => {
-                var i_up = ia;
-                if (mesh.y[ib] > mesh.y[i_up]) i_up = ib;
-                if (mesh.y[ic] > mesh.y[i_up]) i_up = ic;
-                
-                var i_down = ia;
-                if (mesh.y[ib] < mesh.y[i_down]) i_down = ib;
-                if (mesh.y[ic] < mesh.y[i_down]) i_down = ic;
-                
-                var i_mid = ia;
-                if (i_mid == i_up) i_mid = ib;
-                if (i_mid == i_down) i_mid = ic;
-                
-                rasterHalfTriangle(mesh, i_up, i_mid, i_down, ia, ib, ic, true);
-                rasterHalfTriangle(mesh, i_up, i_mid, i_down, ia, ib, ic, false);
+                var color = mesh.colors[ia];
+                color.r *= dp;
+                color.g *= dp;
+                color.b *= dp;
+                fillTriangle(pa_x, pa_y, pb_x, pb_y, pc_x, pc_y, color);
+                //rasterHalfTriangle(mesh, i_up, i_mid, i_down, ia, ib, ic, true);
+                //rasterHalfTriangle(mesh, i_up, i_mid, i_down, ia, ib, ic, false);
             },
         }
     }
@@ -982,13 +971,13 @@ fn rasterHalfTriangleButIsAVeryBadImplementation(mesh: Mesh, i_up: u32, i_mid: u
                     
                     const pixel = screen_buffer[(_x + _y * win_width) * 4 ..][0..3];
                     if (color[3] > 0.999) {
-                        //pixel[0] = @floatToInt(u8, color[0] * 255);
-                        //pixel[1] = @floatToInt(u8, color[1] * 255);
-                        //pixel[2] = @floatToInt(u8, color[2] * 255);
+                        pixel[0] = @floatToInt(u8, color[0] * 255);
+                        pixel[1] = @floatToInt(u8, color[1] * 255);
+                        pixel[2] = @floatToInt(u8, color[2] * 255);
                         
-                        pixel[0] = @floatToInt(u8, depth_buffer[depth_index] * 255);
-                        pixel[1] = @floatToInt(u8, depth_buffer[depth_index] * 255);
-                        pixel[2] = @floatToInt(u8, depth_buffer[depth_index] * 255);
+                        //pixel[0] = @floatToInt(u8, depth_buffer[depth_index] * 255);
+                        //pixel[1] = @floatToInt(u8, depth_buffer[depth_index] * 255);
+                        //pixel[2] = @floatToInt(u8, depth_buffer[depth_index] * 255);
                         
                         //pixel[0] = @floatToInt(u8, z_4x[i] * 255);
                         //pixel[1] = @floatToInt(u8, z_4x[i] * 255);
@@ -1010,8 +999,4 @@ fn rasterHalfTriangleButIsAVeryBadImplementation(mesh: Mesh, i_up: u32, i_mid: u
             y += pixel_size_y;
         }
     }
-}
-
-inline fn edgeFunction(xa: f32, ya: f32, xb: f32, yb: f32, xc: f32, yc: f32) f32 {
-    return (xc - xa) * (yb - ya) - (yc - ya) * (xb - xa);
 }

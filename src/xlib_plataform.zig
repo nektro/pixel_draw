@@ -43,6 +43,8 @@ const keymap = [_]u32{
     c.XK_0,
     c.XK_Up,
     c.XK_Down,
+    c.XK_Left,
+    c.XK_Right,
 };
 
 pub var keys_down = [_]bool{false} ** keymap.len;
@@ -280,4 +282,5 @@ pub fn plataformInit(
         _ = c.XPutImage(display, window, default_graphics_context, x_window_buffer, 0, 0, 0, 0, win_width, win_height);
     }
     main_allocator.free(screen_buffer);
+    main_allocator.free(depth_buffer);
 }

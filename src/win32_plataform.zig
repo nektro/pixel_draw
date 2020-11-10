@@ -118,6 +118,11 @@ const VirtualKeys = struct {
     pub const SUBTRACT = 0x6D;
     pub const TAB = 0x09;
     pub const ZOOM = 0xFB;
+    
+    pub const LEFT = 0x25;
+    pub const RIGHT = 0x26;
+    pub const DOWN = 0x27;
+    pub const UP = 0x28;
 };
 
 
@@ -195,6 +200,10 @@ const keymap = [_]u32{
     VirtualKeys.KEY_8,
     VirtualKeys.KEY_9,
     
+    VirtualKeys.UP,
+    VirtualKeys.DOWN,
+    VirtualKeys.LEFT,
+    VirtualKeys.RIGHT,
 };
 
 pub var keys_down = [_]bool{false} ** keymap.len;
