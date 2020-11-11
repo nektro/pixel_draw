@@ -708,10 +708,7 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
         result.triangle1[in_i1].pos = pos1;
         
         result.count = 2;
-        result.triangle0[0].color = Color.c(1, 0, 1, 1);
-        result.triangle1[0].color = Color.c(1, 0, 1, 1);
     } else if (out_count == 2) {
-        //result.triangle0[0].color = Color.c(1, 1, 0, 1);
         result.count = 1;
         
         var in_i: u32 = 0;
@@ -744,7 +741,6 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, proj_matrix: [4][4]f32,
         const ic = mesh.i[index + 2];
         
         var triangle = [_]Vertex{mesh.v[ia], mesh.v[ib], mesh.v[ic]};
-        var triangle_w = [_]f32 {1.0, 1.0, 1.0};
         
         // Calculate normal
         var n = Vec3{};
@@ -777,11 +773,6 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, proj_matrix: [4][4]f32,
                 triangle_l[0][i].pos = Vec3_sub(triangle[i].pos, cam.pos);
             }
             
-            // TODO(Samuel): Replace this with cliping
-            //if (triangle[0].pos.z > -0.1 or
-            //triangle[1].pos.z > -0.1 or
-            //triangle[2].pos.z > -0.1) continue;
-            
             { // clip near
                 const cliping_result = clipTriangle(triangle_l[0], Plane.c(0, 0, -1, -0.1));
                 if (cliping_result.count == 0) continue : main_loop;
@@ -808,7 +799,7 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, proj_matrix: [4][4]f32,
                     new_t.y = proj_matrix[1][1] * triangle_l[j][i].pos.y;
                     new_t.z = proj_matrix[2][2] * triangle_l[j][i].pos.z + proj_matrix[2][3];
                     const new_w = proj_matrix[3][2] * triangle_l[j][i].pos.z + proj_matrix[3][3];
-                    triangle_w[i] = new_w;
+                    triangle_l[j][i].w = new_w;
                     triangle_l[j][i].pos = Vec3_div_F(new_t, new_w);
                 }
             }

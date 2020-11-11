@@ -64,6 +64,7 @@ pub const Vertex = struct {
     pos: Vec3 = .{},
     color: Color = .{},
     uv: Vec2 = .{},
+    w: f32 = 1.0,
     
     pub inline fn c(pos: Vec3, color: Color, uv: Vec2) Vertex {
         return Vertex{.pos = pos, .color = color, .uv = uv};
