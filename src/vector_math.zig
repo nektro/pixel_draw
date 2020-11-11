@@ -231,13 +231,15 @@ pub fn interpolateVertexAttr(va: Vertex, vb: Vertex, vc: Vertex, pos: Vec3) Vert
                           pos.x, pos.y) / area;
     var w2 = 1.0 - w0 - w1;
     
-    w0 /= va.w;
-    w1 /= va.w;
-    w2 /= va.w;
-    const w_sum = w0 + w1 + w2;
-    w0 /= w_sum;
-    w1 /= w_sum;
-    w2 /= w_sum;
+    if (false) {
+        w0 /= va.w;
+        w1 /= va.w;
+        w2 /= va.w;
+        const w_sum = w0 + w1 + w2;
+        w0 /= w_sum;
+        w1 /= w_sum;
+        w2 /= w_sum;
+    }
     
     result.color.r = w0 * va.color.r + w1 * vb.color.r + w2 * vc.color.r;
     result.color.g = w0 * va.color.g + w1 * vb.color.g + w2 * vc.color.g;
