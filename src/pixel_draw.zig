@@ -748,7 +748,7 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, proj_matrix: [4][4]f32,
             //triangle[2].pos.z > -0.1) continue;
             
             { // clip near
-                const cliping_result = clipTriangle(triangle, Plane.c(0, 0, -1, -1.0));
+                const cliping_result = clipTriangle(triangle, Plane.c(0, 0, -1, -0.1));
                 if (cliping_result.count == 0) continue : main_loop;
                 triangle = cliping_result.triangle0;
             }
