@@ -733,19 +733,19 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
         const pos2 = lineIntersectPlane(triangle[in_i2].pos, dir, plane).?;
         
         { // Color interpolation
-            const t1 = Vec3_len( Vec3_sub(result.triangle0[in_i1].pos, pos1)) /
-                Vec3_len( Vec3_sub(result.triangle0[in_i1].pos, result.triangle0[out_i].pos));
+            const t1 = Vec3_len( Vec3_sub(triangle[in_i1].pos, pos1)) /
+                Vec3_len( Vec3_sub(triangle[in_i1].pos, triangle[out_i].pos));
             
-            const t2 = Vec3_len( Vec3_sub(result.triangle0[in_i2].pos, pos2)) /
-                Vec3_len( Vec3_sub(result.triangle0[in_i2].pos, result.triangle0[out_i].pos));
+            const t2 = Vec3_len( Vec3_sub(triangle[in_i2].pos, pos2)) /
+                Vec3_len( Vec3_sub(triangle[in_i2].pos, triangle[out_i].pos));
             
-            const color1 = Color_lerp(result.triangle0[in_i1].color,
-                                      result.triangle0[out_i].color, t1);
+            const color1 = Color_lerp(triangle[in_i1].color,
+                                      triangle[out_i].color, t1);
+            
+            const color2 =  Color_lerp(triangle[in_i2].color,
+                                       triangle[out_i].color, t2);
+            
             result.triangle0[out_i].color = color1;
-            
-            const color2 =  Color_lerp(result.triangle1[in_i2].color,
-                                       result.triangle1[out_i].color, t2);
-            
             result.triangle1[out_i].color = color2;
             result.triangle1[in_i1].color = color1;
         }
@@ -773,17 +773,17 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
         const pos2 = lineIntersectPlane(triangle[in_i].pos, dir2, plane).?;
         
         { // color interpolation
-            const t1 = Vec3_len( Vec3_sub(result.triangle0[out_i1].pos, pos1)) /
-                Vec3_len( Vec3_sub(result.triangle0[out_i1].pos, result.triangle0[in_i].pos));
+            const t1 = Vec3_len( Vec3_sub(triangle[out_i1].pos, pos1)) /
+                Vec3_len( Vec3_sub(triangle[out_i1].pos, triangle[in_i].pos));
             
-            const t2 = Vec3_len( Vec3_sub(result.triangle0[out_i2].pos, pos2)) /
-                Vec3_len( Vec3_sub(result.triangle0[out_i2].pos, result.triangle0[in_i].pos));
+            const t2 = Vec3_len( Vec3_sub(triangle[out_i2].pos, pos2)) /
+                Vec3_len( Vec3_sub(triangle[out_i2].pos, triangle[in_i].pos));
             
             
-            result.triangle0[out_i1].color = Color_lerp(result.triangle0[out_i1].color,
-                                                        result.triangle0[in_i].color, t1);
-            result.triangle0[out_i2].color = Color_lerp(result.triangle0[out_i2].color,
-                                                        result.triangle0[in_i].color, t2);
+            result.triangle0[out_i1].color = Color_lerp(triangle[out_i1].color,
+                                                        triangle[in_i].color, t1);
+            result.triangle0[out_i2].color = Color_lerp(triangle[out_i2].color,
+                                                        triangle[in_i].color, t2);
             
         }
         
@@ -931,17 +931,17 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, proj_matrix: [4][4]f32,
                 },
                 .Faces => {
                     var color1 = triangle[0].color;
-                    color1.r *= dp;
-                    color1.g *= dp;
-                    color1.b *= dp;
+                    //color1.r *= dp;
+                    //color1.g *= dp;
+                    //color1.b *= dp;
                     var color2 = triangle[1].color;
-                    color2.r *= dp;
-                    color2.g *= dp;
-                    color2.b *= dp;
+                    //color2.r *= dp;
+                    //color2.g *= dp;
+                    //color2.b *= dp;
                     var color3 = triangle[2].color;
-                    color3.r *= dp;
-                    color3.g *= dp;
-                    color3.b *= dp;
+                    //color3.r *= dp;
+                    //color3.g *= dp;
+                    //color3.b *= dp;
                     fillTriangleColors(pa_x, pa_y, pb_x, pb_y, pc_x, pc_y,
                                        color1, color2, color3,
                                        triangle[0].w, triangle[1].w, triangle[2].w);
