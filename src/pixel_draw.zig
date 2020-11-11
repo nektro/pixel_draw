@@ -602,11 +602,49 @@ pub fn fillTriangle(xa: i32, ya: i32, xb: i32, yb: i32, xc: i32, yc: i32, color:
     while (y < y_down) : (y += 1) {
         var x: i32 = x_left;
         while (x < x_right) : (x += 1) {
-            const w0 = edgeFunctionI(xb, yb, xc, yc, x, y);
-            const w1 = edgeFunctionI(xc, yc, xa, ya, x, y);
-            const w2 = edgeFunctionI(xa, ya, xb, yb, x, y);
+            var w0 = edgeFunctionI(xb, yb, xc, yc, x, y);
+            var w1 = edgeFunctionI(xc, yc, xa, ya, x, y);
+            var w2 = edgeFunctionI(xa, ya, xb, yb, x, y);
             
             if (w0 >= 0 and w1 >= 0 and w2 >= 0) {
+                putPixel(x, y, color);
+            }
+        }
+    }
+}
+
+pub fn fillTriangleColors(xa: i32, ya: i32, xb: i32, yb: i32, xc: i32, yc: i32,
+                          color_a: Color, color_b: Color, color_c: Color,
+                          vw_a: f32, vw_b: f32, vw_c: f32) void {
+    const x_left  = math.min(math.min(xa, xb), math.max(xc, 0));
+    const x_right = math.max(math.max(xa, xb), math.min(xc, @intCast(i32, win_width - 1)));
+    const y_up    = math.min(math.min(ya, yb), math.max(yc, 0));
+    const y_down  = math.max(math.max(ya, yb), math.min(yc, @intCast(i32, win_height - 1)));
+    
+    var y: i32 = y_up;
+    while (y <= y_down) : (y += 1) {
+        const area = @intToFloat(f32, edgeFunctionI(xa, ya, xb, yb, xc, yc));
+        
+        var x: i32 = x_left;
+        while (x <= x_right) : (x += 1) {
+            var w0 = @intToFloat(f32, edgeFunctionI(xb, yb, xc, yc, x, y)) / area;
+            var w1 = @intToFloat(f32, edgeFunctionI(xc, yc, xa, ya, x, y)) / area;
+            var w2 = 1.0 - w0 - w1;
+            if (w0 >= 0 and w1 >= 0 and w2 >= 0) {
+                // NOTE(Samuel): Correct for perpective
+                w0 /= vw_a;
+                w1 /= vw_b;
+                w2 /= vw_c;
+                const w_sum = w0 + w1 + w2;
+                w0 /= w_sum;
+                w1 /= w_sum;
+                w2 /= w_sum;
+                
+                var color: Color = .{};
+                color.r = color_a.r * w0 + color_b.r * w1 + color_c.r * w2;
+                color.g = color_a.g * w0 + color_b.g * w1 + color_c.g * w2;
+                color.b = color_a.b * w0 + color_b.b * w1 + color_c.b * w2;
+                color.a = color_a.a * w0 + color_b.a * w1 + color_c.a * w2;
                 putPixel(x, y, color);
             }
         }
@@ -709,14 +747,17 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
             Vec3_len( Vec3_sub(result.triangle0[in_i2].pos, result.triangle0[out_i].pos));
         
         result.triangle0[out_i].pos = pos1;
-        result.triangle0[out_i].color = Color_lerp(result.triangle0[in_i1].color,
-                                                   result.triangle0[out_i].color, t1);
+        const color1 = Color_lerp(result.triangle0[in_i1].color,
+                                  result.triangle0[out_i].color, t1);
+        result.triangle0[out_i].color = color1;
         
         result.triangle1[out_i].pos = pos2;
         result.triangle1[in_i1].pos = pos1;
-        result.triangle1[out_i].color = Color_lerp(result.triangle0[in_i2].color,
-                                                   result.triangle0[out_i].color, t1);
-        result.triangle1[in_i1].color = result.triangle0[out_i].color;
+        const color2 =  Color_lerp(result.triangle1[in_i2].color,
+                                   result.triangle1[out_i].color, t2);
+        
+        result.triangle1[out_i].color = color2;
+        result.triangle1[in_i1].color = color1;
         
         result.count = 2;
     } else if (out_count == 2) {
@@ -739,15 +780,15 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
         const t1 = Vec3_len( Vec3_sub(result.triangle0[out_i1].pos, pos1)) /
             Vec3_len( Vec3_sub(result.triangle0[out_i1].pos, result.triangle0[in_i].pos));
         
-        const t2 = Vec3_len( Vec3_sub(result.triangle0[out_i1].pos, pos1)) /
-            Vec3_len( Vec3_sub(result.triangle0[out_i1].pos, result.triangle0[in_i].pos));
+        const t2 = Vec3_len( Vec3_sub(result.triangle0[out_i2].pos, pos2)) /
+            Vec3_len( Vec3_sub(result.triangle0[out_i2].pos, result.triangle0[in_i].pos));
         
         result.triangle0[out_i1].pos = pos1;
-        result.triangle0[out_i1].color = Color_lerp(result.triangle0[in_i].color,
-                                                    result.triangle0[out_i1].color, t1);
+        result.triangle0[out_i1].color = Color_lerp(result.triangle0[out_i1].color,
+                                                    result.triangle0[in_i].color, t1);
         result.triangle0[out_i2].pos = pos2;
-        result.triangle0[out_i2].color = Color_lerp(result.triangle0[in_i].color,
-                                                    result.triangle0[out_i2].color, t2);
+        result.triangle0[out_i2].color = Color_lerp(result.triangle0[out_i2].color,
+                                                    result.triangle0[in_i].color, t2);
     } else if (out_count == 3) {
         result.count = 0;
     }
@@ -889,11 +930,21 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, proj_matrix: [4][4]f32,
                     drawTriangle(pa_x, pa_y, pb_x, pb_y, pc_x, pc_y, line_color, 1);
                 },
                 .Faces => {
-                    var color = triangle[0].color;
-                    color.r *= dp;
-                    color.g *= dp;
-                    color.b *= dp;
-                    fillTriangle(pa_x, pa_y, pb_x, pb_y, pc_x, pc_y, color);
+                    var color1 = triangle[0].color;
+                    color1.r *= dp;
+                    color1.g *= dp;
+                    color1.b *= dp;
+                    var color2 = triangle[1].color;
+                    color2.r *= dp;
+                    color2.g *= dp;
+                    color2.b *= dp;
+                    var color3 = triangle[2].color;
+                    color3.r *= dp;
+                    color3.g *= dp;
+                    color3.b *= dp;
+                    fillTriangleColors(pa_x, pa_y, pb_x, pb_y, pc_x, pc_y,
+                                       color1, color2, color3,
+                                       triangle[0].w, triangle[1].w, triangle[2].w);
                 },
             }
         }

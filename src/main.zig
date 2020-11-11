@@ -120,8 +120,8 @@ fn update(delta: f32) void {
     }
     
     draw.drawMesh(mesh, .Faces, matrix, cam);
-    draw.drawMesh(mesh, .Lines, matrix, cam);
-    draw.drawMesh(mesh, .Points, matrix, cam);
+    //draw.drawMesh(mesh, .Lines, matrix, cam);
+    //draw.drawMesh(mesh, .Points, matrix, cam);
     
     { // Show fps
         const fpst = std.fmt.bufPrint(&print_buff, "{d:0.4}/{d:0.4}", .{ 1 / delta, delta }) catch unreachable;
