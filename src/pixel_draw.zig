@@ -733,11 +733,19 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
         const pos2 = lineIntersectPlane(triangle[in_i2].pos, dir, plane).?;
         
         { // Color interpolation
-            const t1 = Vec3_len( Vec3_sub(triangle[in_i1].pos, pos1)) /
-                Vec3_len( Vec3_sub(triangle[in_i1].pos, triangle[out_i].pos));
+            var t_in_i1_pos = triangle[in_i1].pos;
+            var t_in_i2_pos = triangle[in_i2].pos;
+            var t_out_i_pos = triangle[out_i].pos;
             
-            const t2 = Vec3_len( Vec3_sub(triangle[in_i2].pos, pos2)) /
-                Vec3_len( Vec3_sub(triangle[in_i2].pos, triangle[out_i].pos));
+            //t_in_i1_pos.z = triangle[in_i1].w;
+            //t_in_i2_pos.z = triangle[in_i2].w;
+            //t_out_i_pos.z = triangle[out_i].w;
+            
+            const t1 = Vec3_len( Vec3_sub(t_in_i1_pos, pos1)) /
+                Vec3_len( Vec3_sub(t_in_i1_pos, t_out_i_pos));
+            
+            const t2 = Vec3_len( Vec3_sub(t_in_i2_pos, pos2)) /
+                Vec3_len( Vec3_sub(t_in_i2_pos, t_out_i_pos));
             
             const color1 = Color_lerp(triangle[in_i1].color,
                                       triangle[out_i].color, t1);
@@ -878,24 +886,27 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, proj_matrix: [4][4]f32,
             Plane.c(0, -1, 0, 1),
         };
         
-        for (planes) |plane| {
-            var tl_index: u32 = 0;
-            const len = triangle_l_len;
-            while (tl_index < len) : (tl_index += 1) {
-                const cliping_result = clipTriangle(triangle_l[tl_index], plane);
-                
-                if (cliping_result.count == 0) {
-                    for (triangle_l[tl_index..triangle_l_len]) |*it, i| {
-                        it.* = triangle_l[tl_index + i + 1];
-                    }
-                    triangle_l_len -= 1;
-                } else if (cliping_result.count == 1) {
-                    triangle_l[tl_index] = cliping_result.triangle0;
-                } else if (cliping_result.count == 2) {
-                    triangle_l[tl_index] = cliping_result.triangle0;
+        // NOTE(Samuel): Cliping on the side
+        if (true) {
+            for (planes) |plane| {
+                var tl_index: u32 = 0;
+                const len = triangle_l_len;
+                while (tl_index < len) : (tl_index += 1) {
+                    const cliping_result = clipTriangle(triangle_l[tl_index], plane);
                     
-                    triangle_l[triangle_l_len] = cliping_result.triangle1;
-                    triangle_l_len += 1;
+                    if (cliping_result.count == 0) {
+                        for (triangle_l[tl_index..triangle_l_len]) |*it, i| {
+                            it.* = triangle_l[tl_index + i + 1];
+                        }
+                        triangle_l_len -= 1;
+                    } else if (cliping_result.count == 1) {
+                        triangle_l[tl_index] = cliping_result.triangle0;
+                    } else if (cliping_result.count == 2) {
+                        triangle_l[tl_index] = cliping_result.triangle0;
+                        
+                        triangle_l[triangle_l_len] = cliping_result.triangle1;
+                        triangle_l_len += 1;
+                    }
                 }
             }
         }
