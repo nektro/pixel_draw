@@ -31,6 +31,10 @@ pub const Vec3 = struct {
     pub inline fn c(x: f32, y: f32, z: f32) Vec3 {
         return Vec3 {.x = x, .y = y, .z = z};
     }
+    
+    pub inline fn neg(v: *Vec3) Vec3 {
+        return Vec3{.x = -v.x, .y = -v.y, .z = -v.z};
+    }
 };
 
 pub const Vec4 = struct {
@@ -41,6 +45,18 @@ pub const Vec4 = struct {
     
     pub inline fn c(x: f32, y: f32, z: f32, w: f32) Vec3 {
         return Vec3 {.x = x, .y = y, .z = z, .w = w};
+    }
+};
+
+pub const Plane = struct {
+    n: Vec3 = .{},
+    d: f32 = .{},
+    
+    pub inline fn c(nx: f32, ny: f32, nz: f32, d: f32) Plane {
+        return Plane{
+            .n = Vec3_normalize(Vec3.c(nx, ny, nz)),
+            .d = d,
+        };
     }
 };
 
@@ -149,9 +165,21 @@ pub fn Vec3_normalize(v: Vec3) Vec3 {
     return result;
 }
 
-pub fn planeIntersect() Vec3 {
+pub fn lineIntersectPlane(l_origin: Vec3, l_dir: Vec3, plane: Plane) ?Vec3
+{
+    var result: ?Vec3 = null;
     
+    const denom = Vec3_dot(plane.n, l_dir);
+    const epslon = 0.001;
+    if (denom > epslon or denom < -epslon) {
+        const t = (-plane.d - Vec3_dot(plane.n, l_origin)) / denom;
+        const hit_pos = Vec3_add(l_origin, Vec3_mul_F(l_dir, t));
+        result = hit_pos;
+    }
+    
+    return result;
 }
+
 
 pub const Bivec3 = struct {
     xy: f32,
