@@ -686,31 +686,49 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
         break :blk false;
     };
     
-    if (true) {
-        if (out_count == 1) {
-            result.triangle0[0].color = Color.c(1, 0, 1, 1);
-            result.count = 2;
-        } else if (out_count == 2) {
-            result.triangle0[0].color = Color.c(1, 1, 0, 1);
-            result.count = 1;
-            
-            var in_i: u32 = 0;
-            if (t0_out) {
-                in_i = 1;
-                if (t1_out) in_i = 2;
-            }
-            const out_i1 = (in_i + 1) % 3;
-            const out_i2 = (in_i + 2) % 3;
-            
-            const dir1 = Vec3_normalize(Vec3_sub(triangle[out_i1].pos, triangle[in_i].pos));
-            const dir2 = Vec3_normalize(Vec3_sub(triangle[out_i2].pos, triangle[in_i].pos));
-            result.triangle0[out_i1].pos = lineIntersectPlane(triangle[in_i].pos, dir1, plane).?;
-            result.triangle0[out_i2].pos = lineIntersectPlane(triangle[in_i].pos, dir2, plane).?;
-            
-        } else if (out_count == 3) {
-            result.triangle0[0].color = Color.c(0, 0, 0, 1);
-            result.count = 0;
+    if (out_count == 1) {
+        
+        var out_i: u32 = 0;
+        if (!t0_out) {
+            out_i = 1;
+            if (!t1_out) out_i = 2;
         }
+        const in_i1 = (out_i + 1) % 3;
+        const in_i2 = (out_i + 2) % 3;
+        
+        var dir = Vec3_normalize(Vec3_sub(triangle[out_i].pos, triangle[in_i1].pos));
+        const pos1 = lineIntersectPlane(triangle[in_i1].pos, dir, plane).?;
+        
+        dir = Vec3_normalize(Vec3_sub(triangle[out_i].pos, triangle[in_i2].pos));
+        const pos2 = lineIntersectPlane(triangle[in_i2].pos, dir, plane).?;
+        
+        result.triangle0[out_i].pos = pos1;
+        
+        result.triangle1[out_i].pos = pos2;
+        result.triangle1[in_i1].pos = pos1;
+        
+        result.count = 2;
+        result.triangle0[0].color = Color.c(1, 0, 1, 1);
+        result.triangle1[0].color = Color.c(1, 0, 1, 1);
+    } else if (out_count == 2) {
+        //result.triangle0[0].color = Color.c(1, 1, 0, 1);
+        result.count = 1;
+        
+        var in_i: u32 = 0;
+        if (t0_out) {
+            in_i = 1;
+            if (t1_out) in_i = 2;
+        }
+        const out_i1 = (in_i + 1) % 3;
+        const out_i2 = (in_i + 2) % 3;
+        
+        const dir1 = Vec3_normalize(Vec3_sub(triangle[out_i1].pos, triangle[in_i].pos));
+        const dir2 = Vec3_normalize(Vec3_sub(triangle[out_i2].pos, triangle[in_i].pos));
+        result.triangle0[out_i1].pos = lineIntersectPlane(triangle[in_i].pos, dir1, plane).?;
+        result.triangle0[out_i2].pos = lineIntersectPlane(triangle[in_i].pos, dir2, plane).?;
+        
+    } else if (out_count == 3) {
+        result.count = 0;
     }
     
     return result;
@@ -747,13 +765,16 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, proj_matrix: [4][4]f32,
             if (dp < 0.1) dp = 0.1;
         }
         
+        var triangle_l: [16][3]Vertex = undefined;
+        var triangle_l_len: u32 = 1;
+        triangle_l[0] = triangle;
         
         {
             var i: u32 = 0;
             
             // Camera Translate
             while (i < 3) : (i += 1) {
-                triangle[i].pos = Vec3_sub(triangle[i].pos, cam.pos);
+                triangle_l[0][i].pos = Vec3_sub(triangle[i].pos, cam.pos);
             }
             
             // TODO(Samuel): Replace this with cliping
@@ -762,76 +783,104 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, proj_matrix: [4][4]f32,
             //triangle[2].pos.z > -0.1) continue;
             
             { // clip near
-                const cliping_result = clipTriangle(triangle, Plane.c(0, 0, -1, -0.1));
-                if (cliping_result.count == 0 or
-                    cliping_result.count == 2) continue : main_loop;
-                triangle = cliping_result.triangle0;
+                const cliping_result = clipTriangle(triangle_l[0], Plane.c(0, 0, -1, -0.1));
+                if (cliping_result.count == 0) continue : main_loop;
+                triangle_l[0] = cliping_result.triangle0;
+                if (cliping_result.count == 2) {
+                    triangle_l[1] = cliping_result.triangle1;
+                    triangle_l_len += 1;
+                }
             }
             
             { // clip far
-                const cliping_result = clipTriangle(triangle, Plane.c(0, 0, 1, 100.0));
+                const cliping_result = clipTriangle(triangle_l[0], Plane.c(0, 0, 1, 100.0));
                 if (cliping_result.count == 0) continue : main_loop;
-                triangle = cliping_result.triangle0;
+                triangle_l[0] = cliping_result.triangle0;
             }
             
             // Projection
-            i = 0;
-            while (i < 3) : (i += 1) {
-                var new_t = Vec3{};
-                new_t.x = proj_matrix[0][0] * triangle[i].pos.x;
-                new_t.y = proj_matrix[1][1] * triangle[i].pos.y;
-                new_t.z = proj_matrix[2][2] * triangle[i].pos.z + proj_matrix[2][3];
-                const new_w = proj_matrix[3][2] * triangle[i].pos.z + proj_matrix[3][3];
-                triangle_w[i] = new_w;
-                triangle[i].pos = Vec3_div_F(new_t, new_w);
+            var j: u32 = 0;
+            while (j < triangle_l_len) : (j += 1) {
+                i = 0;
+                while (i < 3) : (i += 1) {
+                    var new_t = Vec3{};
+                    new_t.x = proj_matrix[0][0] * triangle_l[j][i].pos.x;
+                    new_t.y = proj_matrix[1][1] * triangle_l[j][i].pos.y;
+                    new_t.z = proj_matrix[2][2] * triangle_l[j][i].pos.z + proj_matrix[2][3];
+                    const new_w = proj_matrix[3][2] * triangle_l[j][i].pos.z + proj_matrix[3][3];
+                    triangle_w[i] = new_w;
+                    triangle_l[j][i].pos = Vec3_div_F(new_t, new_w);
+                }
             }
-            
-            const planes = [_]Plane {
-                Plane.c(-1, 0, 0, 1),
-                Plane.c(1, 0, 0, 1),
-                Plane.c(0, 1, 0, 1),
-                Plane.c(0, -1, 0, 1),
-            };
-            
-            for (planes) |plane| {
-                const cliping_result = clipTriangle(triangle, plane);
-                if (cliping_result.count == 0) continue : main_loop;
-                triangle = cliping_result.triangle0;
-            }
-            
-            
         }
         
-        const pixel_size_y = 1.0 / @intToFloat(f32, win_height);
-        const pixel_size_x = 1.0 / @intToFloat(f32, win_width);
+        // Cliping on the side
+        const planes = [_]Plane {
+            Plane.c(-1, 0, 0, 1),
+            Plane.c(1, 0, 0, 1),
+            Plane.c(0, 1, 0, 1),
+            Plane.c(0, -1, 0, 1),
+        };
         
-        const pa_x = @floatToInt(i32, (triangle[0].pos.x + 1) / (2 * pixel_size_x));
-        const pa_y = @floatToInt(i32, (-triangle[0].pos.y + 1) / (2 * pixel_size_y));
-        
-        const pb_x = @floatToInt(i32, (triangle[1].pos.x + 1) / (2 * pixel_size_x));
-        const pb_y = @floatToInt(i32, (-triangle[1].pos.y + 1) / (2 * pixel_size_y));
-        
-        const pc_x = @floatToInt(i32, (triangle[2].pos.x + 1) / (2 * pixel_size_x));
-        const pc_y = @floatToInt(i32, (-triangle[2].pos.y + 1) / (2 * pixel_size_y));
-        
-        switch (mode) {
-            .Points => {
-                fillCircle(pa_x, pa_y, 5, triangle[0].color);
-                fillCircle(pb_x, pb_y, 5, triangle[1].color);
-                fillCircle(pc_x, pc_y, 5, triangle[2].color);
+        for (planes) |plane| {
+            var tl_index: u32 = 0;
+            const len = triangle_l_len;
+            while (tl_index < len) : (tl_index += 1) {
+                const cliping_result = clipTriangle(triangle_l[tl_index], plane);
                 
-            },
-            .Lines => {
-                const line_color = Color.c(1, 1, 1, 1);
-                drawTriangle(pa_x, pa_y, pb_x, pb_y, pc_x, pc_y, line_color, 1);
-            },
-            .Faces => {
-                var color = triangle[0].color;
-                color.r *= dp;
-                color.g *= dp;
-                color.b *= dp;
-                fillTriangle(pa_x, pa_y, pb_x, pb_y, pc_x, pc_y, color);
-            },
+                if (cliping_result.count == 0) {
+                    for (triangle_l[tl_index..triangle_l_len]) |*it, i| {
+                        it.* = triangle_l[tl_index + i + 1];
+                    }
+                    triangle_l_len -= 1;
+                } else if (cliping_result.count == 1) {
+                    triangle_l[tl_index] = cliping_result.triangle0;
+                } else if (cliping_result.count == 2) {
+                    triangle_l[tl_index] = cliping_result.triangle0;
+                    
+                    triangle_l[triangle_l_len] = cliping_result.triangle1;
+                    triangle_l_len += 1;
+                }
+            }
+        }
+        
+        if (triangle_l_len == 0) continue : main_loop;
+        
+        var tl_index: u32 = 0;
+        while (tl_index < triangle_l_len) : (tl_index += 1) {
+            triangle = triangle_l[tl_index];
+            
+            const pixel_size_y = 1.0 / @intToFloat(f32, win_height);
+            const pixel_size_x = 1.0 / @intToFloat(f32, win_width);
+            
+            const pa_x = @floatToInt(i32, (triangle[0].pos.x + 1) / (2 * pixel_size_x));
+            const pa_y = @floatToInt(i32, (-triangle[0].pos.y + 1) / (2 * pixel_size_y));
+            
+            const pb_x = @floatToInt(i32, (triangle[1].pos.x + 1) / (2 * pixel_size_x));
+            const pb_y = @floatToInt(i32, (-triangle[1].pos.y + 1) / (2 * pixel_size_y));
+            
+            const pc_x = @floatToInt(i32, (triangle[2].pos.x + 1) / (2 * pixel_size_x));
+            const pc_y = @floatToInt(i32, (-triangle[2].pos.y + 1) / (2 * pixel_size_y));
+            
+            switch (mode) {
+                .Points => {
+                    fillCircle(pa_x, pa_y, 5, triangle[0].color);
+                    fillCircle(pb_x, pb_y, 5, triangle[1].color);
+                    fillCircle(pc_x, pc_y, 5, triangle[2].color);
+                    
+                },
+                .Lines => {
+                    const line_color = Color.c(1, 1, 1, 1);
+                    drawTriangle(pa_x, pa_y, pb_x, pb_y, pc_x, pc_y, line_color, 1);
+                },
+                .Faces => {
+                    var color = triangle[0].color;
+                    color.r *= dp;
+                    color.g *= dp;
+                    color.b *= dp;
+                    fillTriangle(pa_x, pa_y, pb_x, pb_y, pc_x, pc_y, color);
+                },
+            }
         }
     }
 }
