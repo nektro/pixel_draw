@@ -688,13 +688,29 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
         break :blk false;
     };
     
-    if (false) {
+    if (true) {
         if (out_count == 1) {
-            result.triangle0[0].color = Color.c(1, 0, 1, 1);
+            //result.triangle0[0].color = Color.c(1, 0, 1, 1);
+            result.count = 2;
         } else if (out_count == 2) {
-            result.triangle0[0].color = Color.c(1, 1, 0, 1);
+            //result.triangle0[0].color = Color.c(1, 1, 0, 1);
+            result.count = 1;
+            
+            var in_i: u32 = 0;
+            if (t0_out) {
+                in_i = 1;
+                if (t1_out) in_i = 2;
+            }
+            const out_i1 = (in_i + 1) % 3;
+            const out_i2 = (in_i + 2) % 3;
+            
+            const dir1 = Vec3_normalize(Vec3_sub(triangle[out_i1].pos, triangle[in_i].pos));
+            const dir2 = Vec3_normalize(Vec3_sub(triangle[out_i2].pos, triangle[in_i].pos));
+            result.triangle0[out_i1].pos = lineIntersectPlane(triangle[in_i].pos, dir1, plane).?;
+            result.triangle0[out_i2].pos = lineIntersectPlane(triangle[in_i].pos, dir2, plane).?;
+            
         } else if (out_count == 3) {
-            result.triangle0[0].color = Color.c(0, 0, 0, 1);
+            //result.triangle0[0].color = Color.c(0, 0, 0, 1);
             result.count = 0;
         }
     }
@@ -755,7 +771,8 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, proj_matrix: [4][4]f32,
             
             { // clip far
                 const cliping_result = clipTriangle(triangle, Plane.c(0, 0, 1, 100.0));
-                if (cliping_result.count == 0) continue : main_loop;
+                if (cliping_result.count == 0 or
+                    cliping_result.count == 2) continue : main_loop;
                 triangle = cliping_result.triangle0;
             }
             
