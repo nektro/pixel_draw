@@ -608,10 +608,10 @@ pub fn fillTriangle(xa: i32, ya: i32, xb: i32, yb: i32, xc: i32, yc: i32, color:
 pub fn fillTriangleColors(xa: i32, ya: i32, xb: i32, yb: i32, xc: i32, yc: i32,
                           color_a: Color, color_b: Color, color_c: Color,
                           vw_a: f32, vw_b: f32, vw_c: f32) void {
-    const x_left  = math.min(math.min(xa, xb), math.max(xc, 0));
-    const x_right = math.max(math.max(xa, xb), math.min(xc, @intCast(i32, win_width - 1)));
-    const y_up    = math.min(math.min(ya, yb), math.max(yc, 0));
-    const y_down  = math.max(math.max(ya, yb), math.min(yc, @intCast(i32, win_height - 1)));
+    const x_left  = math.max(math.min(math.min(xa, xb), xc), 0);
+    const x_right = math.min(math.max(math.max(xa, xb), xc), @intCast(i32, win_width - 1));
+    const y_up    = math.max(math.min(math.min(ya, yb),yc), 0);
+    const y_down  = math.min(math.max(math.max(ya, yb),yc), @intCast(i32, win_height - 1));
     
     var y: i32 = y_up;
     while (y <= y_down) : (y += 1) {
@@ -624,6 +624,7 @@ pub fn fillTriangleColors(xa: i32, ya: i32, xb: i32, yb: i32, xc: i32, yc: i32,
             var w2 = 1.0 - w0 - w1;
             if (w0 >= 0 and w1 >= 0 and w2 >= 0) {
                 // NOTE(Samuel): Correct for perpective
+                
                 w0 /= vw_a;
                 w1 /= vw_b;
                 w2 /= vw_c;
@@ -726,41 +727,60 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
         const in_i1 = (out_i + 1) % 3;
         const in_i2 = (out_i + 2) % 3;
         
-        var dir = Vec3_normalize(Vec3_sub(triangle[out_i].pos, triangle[in_i1].pos));
-        const pos1 = lineIntersectPlane(triangle[in_i1].pos, dir, plane).?;
+        var t1: f32= 0.0; 
+        var t2: f32 = 0.0;
         
-        dir = Vec3_normalize(Vec3_sub(triangle[out_i].pos, triangle[in_i2].pos));
-        const pos2 = lineIntersectPlane(triangle[in_i2].pos, dir, plane).?;
+        const pos1 = lineIntersectPlaneT(triangle[in_i1].pos, triangle[out_i].pos, plane, &t1);
+        const pos2 = lineIntersectPlaneT(triangle[in_i2].pos, triangle[out_i].pos, plane, &t2);
         
-        { // Color interpolation
-            var t_in_i1_pos = triangle[in_i1].pos;
-            var t_in_i2_pos = triangle[in_i2].pos;
-            var t_out_i_pos = triangle[out_i].pos;
+        var color1 = Color{};
+        var color2 = Color{};
+        
+        if (false) {
+            var bc1 = baricentricCoordinates(triangle[in_i1].pos, triangle[in_i2].pos,
+                                             triangle[out_i].pos, pos1);
             
-            //t_in_i1_pos.z = triangle[in_i1].w;
-            //t_in_i2_pos.z = triangle[in_i2].w;
-            //t_out_i_pos.z = triangle[out_i].w;
+            var bc2 = baricentricCoordinates(triangle[in_i1].pos, triangle[in_i2].pos,
+                                             triangle[out_i].pos, pos2);
+            bc1.x /= triangle[in_i1].w;
+            bc1.y /= triangle[in_i2].w;
+            bc1.z /= triangle[out_i].w;
+            var w_sum = bc1.x + bc1.y + bc1.z;
+            bc1 = Vec3_div_F(bc1, w_sum);
             
-            const t1 = Vec3_len( Vec3_sub(t_in_i1_pos, pos1)) /
-                Vec3_len( Vec3_sub(t_in_i1_pos, t_out_i_pos));
+            bc2.x /= triangle[in_i1].w;
+            bc2.y /= triangle[in_i2].w;
+            bc2.z /= triangle[out_i].w;
+            w_sum = bc2.x + bc2.y + bc2.z;
+            bc2 = Vec3_div_F(bc2, w_sum);
             
-            const t2 = Vec3_len( Vec3_sub(t_in_i2_pos, pos2)) /
-                Vec3_len( Vec3_sub(t_in_i2_pos, t_out_i_pos));
+            color1 = Color{
+                .r = triangle[in_i1].color.r * bc1.x + triangle[in_i2].color.r * bc1.y + triangle[out_i].color.r * bc1.z,
+                .g = triangle[in_i1].color.g * bc1.x + triangle[in_i2].color.g * bc1.y + triangle[out_i].color.g * bc1.z,
+                .b = triangle[in_i1].color.b * bc1.x + triangle[in_i2].color.b * bc1.y + triangle[out_i].color.b * bc1.z,
+                .a = triangle[in_i1].color.a * bc1.x + triangle[in_i2].color.a * bc1.y + triangle[out_i].color.a * bc1.z,
+            };
             
-            const color1 = Color_lerp(triangle[in_i1].color,
-                                      triangle[out_i].color, t1);
-            
-            const color2 =  Color_lerp(triangle[in_i2].color,
-                                       triangle[out_i].color, t2);
-            
-            result.triangle0[out_i].color = color1;
-            result.triangle1[out_i].color = color2;
-            result.triangle1[in_i1].color = color1;
+            color2 = Color{
+                .r = triangle[in_i1].color.r * bc2.x + triangle[in_i2].color.r * bc2.y + triangle[out_i].color.r * bc2.z,
+                .g = triangle[in_i1].color.g * bc2.x + triangle[in_i2].color.g * bc2.y + triangle[out_i].color.g * bc2.z,
+                .b = triangle[in_i1].color.b * bc2.x + triangle[in_i2].color.b * bc2.y + triangle[out_i].color.b * bc2.z,
+                .a = triangle[in_i1].color.a * bc2.x + triangle[in_i2].color.a * bc2.y + triangle[out_i].color.a * bc2.z,
+            };
+        } else {
+            color1 = Color_lerp(triangle[in_i1].color,
+                                triangle[out_i].color, t1);
+            color2 = Color_lerp(triangle[in_i2].color,
+                                triangle[out_i].color, t2);
         }
         
+        result.triangle0[out_i].color = color1;
+        result.triangle1[in_i1].color = color1;
+        result.triangle1[out_i].color = color2;
+        
         result.triangle0[out_i].pos = pos1;
-        result.triangle1[out_i].pos = pos2;
         result.triangle1[in_i1].pos = pos1;
+        result.triangle1[out_i].pos = pos2;
         
         result.count = 2;
     } else if (out_count == 2) {
@@ -774,27 +794,18 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
         const out_i1 = (in_i + 1) % 3;
         const out_i2 = (in_i + 2) % 3;
         
-        const dir1 = Vec3_normalize(Vec3_sub(triangle[out_i1].pos, triangle[in_i].pos));
-        const dir2 = Vec3_normalize(Vec3_sub(triangle[out_i2].pos, triangle[in_i].pos));
+        var t1: f32 = 0.0;
+        var t2: f32 = 0.0;
+        const pos1 = lineIntersectPlaneT(triangle[out_i1].pos, triangle[in_i].pos, plane, &t1);
+        const pos2 = lineIntersectPlaneT(triangle[out_i2].pos, triangle[in_i].pos, plane, &t2);
         
-        const pos1 = lineIntersectPlane(triangle[in_i].pos, dir1, plane).?;
-        const pos2 = lineIntersectPlane(triangle[in_i].pos, dir2, plane).?;
+        //t1 /= triangle[out_i1].w;
+        //t2 /= triangle[out_i2].w;
         
-        { // color interpolation
-            const t1 = Vec3_len( Vec3_sub(triangle[out_i1].pos, pos1)) /
-                Vec3_len( Vec3_sub(triangle[out_i1].pos, triangle[in_i].pos));
-            
-            const t2 = Vec3_len( Vec3_sub(triangle[out_i2].pos, pos2)) /
-                Vec3_len( Vec3_sub(triangle[out_i2].pos, triangle[in_i].pos));
-            
-            
-            result.triangle0[out_i1].color = Color_lerp(triangle[out_i1].color,
-                                                        triangle[in_i].color, t1);
-            result.triangle0[out_i2].color = Color_lerp(triangle[out_i2].color,
-                                                        triangle[in_i].color, t2);
-            
-        }
-        
+        result.triangle0[out_i1].color = Color_lerp(triangle[out_i1].color,
+                                                    triangle[in_i].color, t1);
+        result.triangle0[out_i2].color = Color_lerp(triangle[out_i2].color,
+                                                    triangle[in_i].color, t2);
         result.triangle0[out_i1].pos = pos1;
         result.triangle0[out_i2].pos = pos2;
     } else if (out_count == 3) {
@@ -838,47 +849,49 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, proj_matrix: [4][4]f32,
         var triangle_l_len: u32 = 1;
         triangle_l[0] = triangle;
         
+        // Camera Translate
         {
             var i: u32 = 0;
-            
-            // Camera Translate
             while (i < 3) : (i += 1) {
                 triangle_l[0][i].pos = Vec3_sub(triangle[i].pos, cam.pos);
             }
-            
-            { // clip near
-                const cliping_result = clipTriangle(triangle_l[0], Plane.c(0, 0, -1, -0.1));
-                if (cliping_result.count == 0) continue : main_loop;
-                triangle_l[0] = cliping_result.triangle0;
-                if (cliping_result.count == 2) {
-                    triangle_l[1] = cliping_result.triangle1;
-                    triangle_l_len += 1;
-                }
+        }
+        
+        { // clip near
+            const cliping_result = clipTriangle(triangle_l[0], Plane.c(0, 0, -1, -0.1));
+            if (cliping_result.count == 0) continue : main_loop;
+            triangle_l[0] = cliping_result.triangle0;
+            if (cliping_result.count == 2) {
+                triangle_l[1] = cliping_result.triangle1;
+                triangle_l_len += 1;
             }
-            
-            { // clip far
-                const cliping_result = clipTriangle(triangle_l[0], Plane.c(0, 0, 1, 100.0));
-                if (cliping_result.count == 0) continue : main_loop;
-                triangle_l[0] = cliping_result.triangle0;
-            }
-            
-            // Projection
-            var j: u32 = 0;
-            while (j < triangle_l_len) : (j += 1) {
-                i = 0;
-                while (i < 3) : (i += 1) {
-                    var new_t = Vec3{};
-                    new_t.x = proj_matrix[0][0] * triangle_l[j][i].pos.x;
-                    new_t.y = proj_matrix[1][1] * triangle_l[j][i].pos.y;
-                    new_t.z = proj_matrix[2][2] * triangle_l[j][i].pos.z + proj_matrix[2][3];
-                    const new_w = proj_matrix[3][2] * triangle_l[j][i].pos.z + proj_matrix[3][3];
-                    triangle_l[j][i].w = new_w;
-                    triangle_l[j][i].pos = Vec3_div_F(new_t, new_w);
-                }
+        }
+        
+        { // clip far
+            const cliping_result = clipTriangle(triangle_l[0], Plane.c(0, 0, 1, 100.0));
+            if (cliping_result.count == 0) continue : main_loop;
+            triangle_l[0] = cliping_result.triangle0;
+        }
+        
+        // Projection
+        var j: u32 = 0;
+        while (j < triangle_l_len) : (j += 1) {
+            var i: u32 = 0;
+            while (i < 3) : (i += 1) {
+                var new_t = Vec3{};
+                new_t.x = proj_matrix[0][0] * triangle_l[j][i].pos.x;
+                new_t.y = proj_matrix[1][1] * triangle_l[j][i].pos.y;
+                new_t.z = proj_matrix[2][2] * triangle_l[j][i].pos.z + proj_matrix[2][3];
+                const new_w = proj_matrix[3][2] * triangle_l[j][i].pos.z + proj_matrix[3][3];
+                triangle_l[j][i].w = new_w;
+                //std.debug.print("w = {d:0.4}\n", .{new_w});
+                triangle_l[j][i].pos = Vec3_div_F(new_t, new_w);
             }
         }
         
         // Cliping on the side
+        // HACK(Samuel): Clip on 2 to avoid not perfect color interpolation
+        // I will fix that later
         const planes = [_]Plane {
             Plane.c(-1, 0, 0, 1),
             Plane.c(1, 0, 0, 1),
@@ -887,26 +900,24 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, proj_matrix: [4][4]f32,
         };
         
         // NOTE(Samuel): Cliping on the side
-        if (true) {
-            for (planes) |plane| {
-                var tl_index: u32 = 0;
-                const len = triangle_l_len;
-                while (tl_index < len) : (tl_index += 1) {
-                    const cliping_result = clipTriangle(triangle_l[tl_index], plane);
-                    
-                    if (cliping_result.count == 0) {
-                        for (triangle_l[tl_index..triangle_l_len]) |*it, i| {
-                            it.* = triangle_l[tl_index + i + 1];
-                        }
-                        triangle_l_len -= 1;
-                    } else if (cliping_result.count == 1) {
-                        triangle_l[tl_index] = cliping_result.triangle0;
-                    } else if (cliping_result.count == 2) {
-                        triangle_l[tl_index] = cliping_result.triangle0;
-                        
-                        triangle_l[triangle_l_len] = cliping_result.triangle1;
-                        triangle_l_len += 1;
+        for (planes) |plane| {
+            var tl_index: u32 = 0;
+            const len = triangle_l_len;
+            while (tl_index < len) : (tl_index += 1) {
+                const cliping_result = clipTriangle(triangle_l[tl_index], plane);
+                
+                if (cliping_result.count == 0) {
+                    for (triangle_l[tl_index..triangle_l_len]) |*it, i| {
+                        it.* = triangle_l[tl_index + i + 1];
                     }
+                    triangle_l_len -= 1;
+                } else if (cliping_result.count == 1) {
+                    //triangle_l[tl_index] = cliping_result.triangle0;
+                } else if (cliping_result.count == 2) {
+                    //triangle_l[tl_index] = cliping_result.triangle0;
+                    
+                    //triangle_l[triangle_l_len] = cliping_result.triangle1;
+                    //triangle_l_len += 1;
                 }
             }
         }
@@ -942,234 +953,22 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, proj_matrix: [4][4]f32,
                 },
                 .Faces => {
                     var color1 = triangle[0].color;
-                    //color1.r *= dp;
-                    //color1.g *= dp;
-                    //color1.b *= dp;
+                    color1.r *= dp;
+                    color1.g *= dp;
+                    color1.b *= dp;
                     var color2 = triangle[1].color;
-                    //color2.r *= dp;
-                    //color2.g *= dp;
-                    //color2.b *= dp;
+                    color2.r *= dp;
+                    color2.g *= dp;
+                    color2.b *= dp;
                     var color3 = triangle[2].color;
-                    //color3.r *= dp;
-                    //color3.g *= dp;
-                    //color3.b *= dp;
+                    color3.r *= dp;
+                    color3.g *= dp;
+                    color3.b *= dp;
                     fillTriangleColors(pa_x, pa_y, pb_x, pb_y, pc_x, pc_y,
                                        color1, color2, color3,
                                        triangle[0].w, triangle[1].w, triangle[2].w);
                 },
             }
-        }
-    }
-}
-
-const f32_4x = std.meta.Vector(4, f32);
-const f32_8x = std.meta.Vector(8, f32);
-
-fn rasterHalfTriangle(mesh: Mesh, i_up: u32, i_mid: u32, i_down: u32,
-                      ia: u32, ib: u32, ic: u32, upper_triangle: bool) void
-{}
-
-// NOTE(Samuel): Do not try to optimize before making it work
-fn rasterHalfTriangleButIsAVeryBadImplementation(mesh: Mesh, i_up: u32, i_mid: u32, i_down: u32,
-                                                 ia: u32, ib: u32, ic: u32, upper_triangle: bool) void
-{
-    const pixel_size_x = 1.0 / @intToFloat(f32, win_width);
-    const pixel_size_y = 1.0 / @intToFloat(f32, win_height);
-    
-    var atan1: f32 = 0.0;
-    var atan2: f32 = 0.0;
-    
-    if (upper_triangle) {
-        atan1 = (mesh.x[i_down] - mesh.x[i_up]) / (mesh.y[i_down] - mesh.y[i_up]);
-        atan2 = (mesh.x[i_mid] - mesh.x[i_up]) / (mesh.y[i_mid] - mesh.y[i_up]);
-    } else {
-        atan1 = (mesh.x[i_up] - mesh.x[i_down]) / (mesh.y[i_up] - mesh.y[i_down]);
-        atan2 = (mesh.x[i_mid] - mesh.x[i_down]) / (mesh.y[i_mid] - mesh.y[i_down]);
-    }
-    
-    var dx1: f32 = 0;
-    var dx2: f32 = 0;
-    
-    if (mesh.x[i_mid] < mesh.x[i_down]) {
-        dx1 = pixel_size_y * atan2;
-        dx2 = pixel_size_y * atan1;
-    } else {
-        dx1 = pixel_size_y * atan1;
-        dx2 = pixel_size_y * atan2;
-    }
-    
-    //if (@fabs(dx1) > 0.2) dx1 = 0.2 * @fabs(dx1) / dx1;
-    //if (@fabs(dx2) > 0.2) dx1 = 0.2 * @fabs(dx1) / dx1;
-    
-    var x1:  f32 = 0.0;
-    var x2: f32 = 0.0;
-    var y:  f32 = 0.0;
-    
-    if (upper_triangle) {
-        x1  = mesh.x[i_up];
-        x2 = mesh.x[i_up];
-        y  = mesh.y[i_up];
-    } else {
-        x1  = mesh.x[i_down];
-        x2 = mesh.x[i_down];
-        y  = mesh.y[i_down] - pixel_size_y;
-    }
-    
-    const area = edgeFunction(mesh.x[ia], mesh.y[ia], mesh.x[ib],
-                              mesh.y[ib], mesh.x[ic], mesh.y[ic]);
-    
-    const yc_minus_yb = mesh.y[ic] - mesh.y[ib];
-    const ya_minus_yc = mesh.y[ia] - mesh.y[ic];
-    const yb_minus_ya = mesh.y[ib] - mesh.y[ia];
-    
-    const xc_minus_xb = mesh.x[ic] - mesh.x[ib];
-    const xa_minus_xc = mesh.x[ia] - mesh.x[ic];
-    const xb_minus_xa = mesh.x[ib] - mesh.x[ia];
-    
-    const yc_minus_yb_4x = @splat(4, yc_minus_yb);
-    const ya_minus_yc_4x = @splat(4, ya_minus_yc);
-    const yb_minus_ya_4x = @splat(4, yb_minus_ya);
-    
-    const xc_minus_xb_4x = @splat(4, xc_minus_xb);
-    const xa_minus_xc_4x = @splat(4, xa_minus_xc);
-    const xb_minus_xa_4x = @splat(4, xb_minus_xa);
-    
-    const mesh_x_ia_4x = @splat(4, mesh.x[ia]);
-    const mesh_x_ib_4x = @splat(4, mesh.x[ib]);
-    const mesh_x_ic_4x = @splat(4, mesh.x[ic]);
-    
-    const mesh_y_ia_4x = @splat(4, mesh.y[ia]);
-    const mesh_y_ib_4x = @splat(4, mesh.y[ib]);
-    const mesh_y_ic_4x = @splat(4, mesh.y[ic]);
-    
-    const mesh_z_ia_4x = @splat(4, mesh.z[ia]);
-    const mesh_z_ib_4x = @splat(4, mesh.z[ib]);
-    const mesh_z_ic_4x = @splat(4, mesh.z[ic]);
-    
-    const mesh_w_ia_4x = @splat(4, mesh.w[ia]);
-    const mesh_w_ib_4x = @splat(4, mesh.w[ib]);
-    const mesh_w_ic_4x = @splat(4, mesh.w[ic]);
-    
-    const area_4x = @splat(4, area);
-    
-    const mcolor_ia = f32_4x{mesh.colors[ia].r, mesh.colors[ia].g, mesh.colors[ia].b, mesh.colors[ia].a};
-    const mcolor_ib = f32_4x{mesh.colors[ib].r, mesh.colors[ib].g, mesh.colors[ib].b, mesh.colors[ib].a};
-    const mcolor_ic = f32_4x{mesh.colors[ic].r, mesh.colors[ic].g, mesh.colors[ic].b, mesh.colors[ic].a};
-    
-    const ua_4x = @splat(4, mesh.u[ia]);
-    const ub_4x = @splat(4, mesh.u[ib]);
-    const uc_4x = @splat(4, mesh.u[ic]);
-    
-    const va_4x = @splat(4, mesh.v[ia]);
-    const vb_4x = @splat(4, mesh.v[ib]);
-    const vc_4x = @splat(4, mesh.v[ic]);
-    const one_4x = @splat(4, @as(f32, 1.0));
-    
-    const w0_base = (mesh_y_ib_4x * xc_minus_xb_4x - mesh_x_ic_4x * yc_minus_yb_4x) / area_4x;
-    const w1_base = (mesh_y_ic_4x * xa_minus_xc_4x - mesh_x_ic_4x * ya_minus_yc_4x) / area_4x;
-    
-    while (true) {
-        if (upper_triangle) {
-            if (!(y > mesh.y[i_mid] - pixel_size_y)) break;
-        } else {
-            if (!(y < mesh.y[i_mid] + pixel_size_y)) break;
-        }
-        
-        const yp  = @floatToInt(i32, (-y  + 1) * 0.5 / pixel_size_y);
-        const xp2 = @floatToInt(i32, (x2 + 1)  * 0.5 / pixel_size_x);
-        var xp  = @floatToInt(i32, (x1  + 1)  * 0.5 / pixel_size_x);
-        
-        var x = x1;
-        const x_inc = pixel_size_x * 2;
-        
-        const y_4x = @splat(4, y);
-        const x_inc_4x = f32_4x{0, x_inc, x_inc*2, x_inc*3};
-        
-        const w0_base2 = (y_4x * xc_minus_xb_4x) / area_4x - w0_base;
-        const w1_base2 = (y_4x * xa_minus_xc_4x) / area_4x - w1_base;
-        
-        while (xp < xp2) : (xp += 4) {
-            const x_4x = @splat(4, x) + x_inc_4x;
-            
-            // TODO(Samuel): Optimize this out by pre calculating and incrementing the interpolation
-            var w0 = (x_4x * yc_minus_yb_4x) / area_4x - w0_base2;
-            var w1 = (x_4x * ya_minus_yc_4x) / area_4x - w1_base2;
-            var w2 = one_4x - w0 - w1;
-            
-            // NOTE(Samuel): Perspective correct interpolation
-            if (true) {
-                w0 /= mesh_w_ia_4x;
-                w1 /= mesh_w_ib_4x;
-                w2 /= mesh_w_ic_4x;
-                const w_sum = w0 + w1 + w2;
-                w0 /= w_sum;
-                w1 /= w_sum;
-                w2 /= w_sum;
-            }
-            const one_over_z_4x = w0 * (one_4x / mesh_z_ia_4x) + w1 * (one_4x / mesh_z_ib_4x) + w2 * (one_4x / mesh_z_ic_4x);
-            
-            const z_4x = one_4x / one_over_z_4x;
-            
-            var u_4x = ua_4x * w0 + ub_4x * w1 + uc_4x * w2;
-            var v_4x = va_4x * w0 + vb_4x * w1 + vc_4x * w2;
-            
-            var i: u32 = 0;
-            while (i < 4) : (i += 1) {
-                const w0_4x = @splat(4, w0[i]);
-                const w1_4x = @splat(4, w1[i]);
-                const w2_4x = @splat(4, w2[i]);
-                
-                var color = mcolor_ia * w0_4x + mcolor_ib * w1_4x + mcolor_ic * w2_4x;
-                
-                // TODO(Samuel): Inline and SIMD texture mapping
-                //var color: f32_4x = textureMap(u_4x[i], v_4x[i], mesh.texture);
-                
-                //color *= @splat(4, z);
-                //std.debug.print("{} {} {} {}\n", .{color[0], color[1], color[2], color[3]});
-                
-                const _i = @intCast(i32, i);
-                if (xp + _i < xp2)  {
-                    
-                    // HACK(Samuel): Remove this
-                    const _x = @intCast(u32, std.math.clamp(xp + _i, 0, @intCast(i32, win_width) - 1));
-                    const _y = @intCast(u32, std.math.clamp(yp, 0, @intCast(i32, win_height) - 1));
-                    
-                    //std.debug.print("{d}\n", .{z_4x[i]});
-                    const depth_index = _x + _y * win_width;
-                    if (z_4x[i] <= depth_buffer[depth_index]) {
-                        depth_buffer[depth_index] = z_4x[i];
-                    } else {
-                        continue;
-                    }
-                    
-                    const pixel = screen_buffer[(_x + _y * win_width) * 4 ..][0..3];
-                    if (color[3] > 0.999) {
-                        pixel[0] = @floatToInt(u8, color[0] * 255);
-                        pixel[1] = @floatToInt(u8, color[1] * 255);
-                        pixel[2] = @floatToInt(u8, color[2] * 255);
-                        
-                        //pixel[0] = @floatToInt(u8, depth_buffer[depth_index] * 255);
-                        //pixel[1] = @floatToInt(u8, depth_buffer[depth_index] * 255);
-                        //pixel[2] = @floatToInt(u8, depth_buffer[depth_index] * 255);
-                        
-                        //pixel[0] = @floatToInt(u8, z_4x[i] * 255);
-                        //pixel[1] = @floatToInt(u8, z_4x[i] * 255);
-                        //pixel[2] = @floatToInt(u8, z_4x[i] * 255);
-                    }
-                }
-            }
-            
-            x += x_inc * 4;
-        }
-        
-        if (upper_triangle) {
-            x1 -= dx1;
-            x2 -= dx2;
-            y -= pixel_size_y;
-        } else {
-            x1 += dx1;
-            x2 += dx2;
-            y += pixel_size_y;
         }
     }
 }

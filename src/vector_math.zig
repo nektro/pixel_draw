@@ -196,6 +196,16 @@ pub fn lineIntersectPlane(l_origin: Vec3, l_dir: Vec3, plane: Plane) ?Vec3
     return result;
 }
 
+pub fn lineIntersectPlaneT(l_origin: Vec3, l_end: Vec3, plane: Plane, t: *f32) Vec3
+{
+    const ad = Vec3_dot(l_origin, plane.n);
+    const bd = Vec3_dot(l_end, plane.n);
+    t.* = (-plane.d - ad) / (bd - ad);
+    const line_start_to_end = Vec3_sub(l_end, l_origin);
+    const line_to_intersect = Vec3_mul_F(line_start_to_end, t.*);
+    return Vec3_add(l_origin, line_to_intersect);
+}
+
 
 pub const Bivec3 = struct {
     xy: f32,
@@ -247,4 +257,18 @@ pub fn interpolateVertexAttr(va: Vertex, vb: Vertex, vc: Vertex, pos: Vec3) Vert
     result.color.a = w0 * va.color.a + w1 * vb.color.a + w2 * vc.color.a;
     
     return result;
+}
+
+pub fn baricentricCoordinates(a: anytype, b: anytype,
+                              c: anytype, p: anytype) Vec3 {
+    if (@TypeOf(a) != Vec3 and @TypeOf(a) != Vec2) @compileError("");
+    if (@TypeOf(b) != Vec3 and @TypeOf(b) != Vec2) @compileError("");
+    if (@TypeOf(c) != Vec3 and @TypeOf(c) != Vec2) @compileError("");
+    if (@TypeOf(p) != Vec3 and @TypeOf(p) != Vec2) @compileError("");
+    
+    const area = edgeFunction(a.x, a.y, b.x, b.y, c.x, c.y);
+    var w0 = edgeFunction(b.x, b.y, c.x, c.y, p.x, p.y) / area;
+    var w1 = edgeFunction(c.x, c.y, a.x, a.y, p.x, p.y) / area;
+    var w2 = 1.0 - w0 - w1;
+    return Vec3.c(w0, w1, w2);
 }

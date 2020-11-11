@@ -120,7 +120,7 @@ fn update(delta: f32) void {
     }
     
     draw.drawMesh(mesh, .Faces, matrix, cam);
-    //draw.drawMesh(mesh, .Lines, matrix, cam);
+    draw.drawMesh(mesh, .Lines, matrix, cam);
     //draw.drawMesh(mesh, .Points, matrix, cam);
     
     { // Show fps
