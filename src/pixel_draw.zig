@@ -642,7 +642,6 @@ pub const Camera3D = struct {
 pub const ClipTriangleReturn = struct {
     triangle0: [3]Vertex,
     triangle1: [3]Vertex,
-    triangle2: [3]Vertex,
     count: u32 = 0,
 };
 
@@ -651,7 +650,6 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
     var result = ClipTriangleReturn {
         .triangle0 = triangle,
         .triangle1 = triangle,
-        .triangle2 = triangle,
         .count = 1,
     };
     
@@ -690,10 +688,10 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
     
     if (true) {
         if (out_count == 1) {
-            //result.triangle0[0].color = Color.c(1, 0, 1, 1);
+            result.triangle0[0].color = Color.c(1, 0, 1, 1);
             result.count = 2;
         } else if (out_count == 2) {
-            //result.triangle0[0].color = Color.c(1, 1, 0, 1);
+            result.triangle0[0].color = Color.c(1, 1, 0, 1);
             result.count = 1;
             
             var in_i: u32 = 0;
@@ -710,7 +708,7 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
             result.triangle0[out_i2].pos = lineIntersectPlane(triangle[in_i].pos, dir2, plane).?;
             
         } else if (out_count == 3) {
-            //result.triangle0[0].color = Color.c(0, 0, 0, 1);
+            result.triangle0[0].color = Color.c(0, 0, 0, 1);
             result.count = 0;
         }
     }
@@ -765,14 +763,14 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, proj_matrix: [4][4]f32,
             
             { // clip near
                 const cliping_result = clipTriangle(triangle, Plane.c(0, 0, -1, -0.1));
-                if (cliping_result.count == 0) continue : main_loop;
+                if (cliping_result.count == 0 or
+                    cliping_result.count == 2) continue : main_loop;
                 triangle = cliping_result.triangle0;
             }
             
             { // clip far
                 const cliping_result = clipTriangle(triangle, Plane.c(0, 0, 1, 100.0));
-                if (cliping_result.count == 0 or
-                    cliping_result.count == 2) continue : main_loop;
+                if (cliping_result.count == 0) continue : main_loop;
                 triangle = cliping_result.triangle0;
             }
             
