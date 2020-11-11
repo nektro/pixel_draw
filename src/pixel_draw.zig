@@ -584,14 +584,6 @@ pub inline fn f32Frac(n: f32) f32 {
     return n - @trunc(n);
 }
 
-inline fn edgeFunction(xa: f32, ya: f32, xb: f32, yb: f32, xc: f32, yc: f32) f32 {
-    return (xc - xa) * (yb - ya) - (yc - ya) * (xb - xa);
-}
-
-inline fn edgeFunctionI(xa: i32, ya: i32, xb: i32, yb: i32, xc: i32, yc: i32) i32 {
-    return (xc - xa) * (yb - ya) - (yc - ya) * (xb - xa);
-}
-
 pub fn fillTriangle(xa: i32, ya: i32, xb: i32, yb: i32, xc: i32, yc: i32, color: Color) void {
     const x_left  = math.min(math.min(xa, xb), math.max(xc, 0));
     const x_right = math.max(math.max(xa, xb), math.min(xc, @intCast(i32, win_width)));
@@ -740,24 +732,17 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
         dir = Vec3_normalize(Vec3_sub(triangle[out_i].pos, triangle[in_i2].pos));
         const pos2 = lineIntersectPlane(triangle[in_i2].pos, dir, plane).?;
         
-        const t1 = Vec3_len( Vec3_sub(result.triangle0[in_i1].pos, pos1)) /
-            Vec3_len( Vec3_sub(result.triangle0[in_i1].pos, result.triangle0[out_i].pos));
+        result.triangle0[out_i] = interpolateVertexAttr(triangle[out_i],
+                                                        triangle[in_i1],
+                                                        triangle[in_i2], pos1);
         
-        const t2 = Vec3_len( Vec3_sub(result.triangle0[in_i2].pos, pos2)) /
-            Vec3_len( Vec3_sub(result.triangle0[in_i2].pos, result.triangle0[out_i].pos));
+        result.triangle1[out_i] = interpolateVertexAttr(triangle[out_i],
+                                                        triangle[in_i1],
+                                                        triangle[in_i2], pos2);
         
-        result.triangle0[out_i].pos = pos1;
-        const color1 = Color_lerp(result.triangle0[in_i1].color,
-                                  result.triangle0[out_i].color, t1);
-        result.triangle0[out_i].color = color1;
-        
-        result.triangle1[out_i].pos = pos2;
-        result.triangle1[in_i1].pos = pos1;
-        const color2 =  Color_lerp(result.triangle1[in_i2].color,
-                                   result.triangle1[out_i].color, t2);
-        
-        result.triangle1[out_i].color = color2;
-        result.triangle1[in_i1].color = color1;
+        result.triangle1[in_i1] = interpolateVertexAttr(triangle[out_i],
+                                                        triangle[in_i1],
+                                                        triangle[in_i2], pos1);
         
         result.count = 2;
     } else if (out_count == 2) {
@@ -777,18 +762,23 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
         const pos1 = lineIntersectPlane(triangle[in_i].pos, dir1, plane).?;
         const pos2 = lineIntersectPlane(triangle[in_i].pos, dir2, plane).?;
         
-        const t1 = Vec3_len( Vec3_sub(result.triangle0[out_i1].pos, pos1)) /
-            Vec3_len( Vec3_sub(result.triangle0[out_i1].pos, result.triangle0[in_i].pos));
-        
-        const t2 = Vec3_len( Vec3_sub(result.triangle0[out_i2].pos, pos2)) /
-            Vec3_len( Vec3_sub(result.triangle0[out_i2].pos, result.triangle0[in_i].pos));
+        { // color interpolation
+            const t1 = Vec3_len( Vec3_sub(result.triangle0[out_i1].pos, pos1)) /
+                Vec3_len( Vec3_sub(result.triangle0[out_i1].pos, result.triangle0[in_i].pos));
+            
+            const t2 = Vec3_len( Vec3_sub(result.triangle0[out_i2].pos, pos2)) /
+                Vec3_len( Vec3_sub(result.triangle0[out_i2].pos, result.triangle0[in_i].pos));
+            
+            
+            result.triangle0[out_i1].color = Color_lerp(result.triangle0[out_i1].color,
+                                                        result.triangle0[in_i].color, t1);
+            result.triangle0[out_i2].color = Color_lerp(result.triangle0[out_i2].color,
+                                                        result.triangle0[in_i].color, t2);
+            
+        }
         
         result.triangle0[out_i1].pos = pos1;
-        result.triangle0[out_i1].color = Color_lerp(result.triangle0[out_i1].color,
-                                                    result.triangle0[in_i].color, t1);
         result.triangle0[out_i2].pos = pos2;
-        result.triangle0[out_i2].color = Color_lerp(result.triangle0[out_i2].color,
-                                                    result.triangle0[in_i].color, t2);
     } else if (out_count == 3) {
         result.count = 0;
     }
@@ -931,17 +921,17 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, proj_matrix: [4][4]f32,
                 },
                 .Faces => {
                     var color1 = triangle[0].color;
-                    color1.r *= dp;
-                    color1.g *= dp;
-                    color1.b *= dp;
+                    //color1.r *= dp;
+                    //color1.g *= dp;
+                    //color1.b *= dp;
                     var color2 = triangle[1].color;
-                    color2.r *= dp;
-                    color2.g *= dp;
-                    color2.b *= dp;
+                    //color2.r *= dp;
+                    //color2.g *= dp;
+                    //color2.b *= dp;
                     var color3 = triangle[2].color;
-                    color3.r *= dp;
-                    color3.g *= dp;
-                    color3.b *= dp;
+                    //color3.r *= dp;
+                    //color3.g *= dp;
+                    //color3.b *= dp;
                     fillTriangleColors(pa_x, pa_y, pb_x, pb_y, pc_x, pc_y,
                                        color1, color2, color3,
                                        triangle[0].w, triangle[1].w, triangle[2].w);

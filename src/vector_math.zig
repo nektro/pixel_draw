@@ -202,3 +202,47 @@ pub const Bivec3 = struct {
     xz: f32,
     yz: f32,
 };
+
+
+
+pub inline fn edgeFunction(xa: f32, ya: f32, xb: f32, yb: f32, xc: f32, yc: f32) f32 {
+    return (xc - xa) * (yb - ya) - (yc - ya) * (xb - xa);
+}
+
+pub inline fn edgeFunctionI(xa: i32, ya: i32, xb: i32, yb: i32, xc: i32, yc: i32) i32 {
+    return (xc - xa) * (yb - ya) - (yc - ya) * (xb - xa);
+}
+
+pub fn interpolateVertexAttr(va: Vertex, vb: Vertex, vc: Vertex, pos: Vec3) Vertex {
+    var result = Vertex{
+        .pos = pos,
+    };
+    
+    const area = edgeFunction(va.pos.x, va.pos.y,
+                              vb.pos.x, vb.pos.y,
+                              vc.pos.x, vc.pos.y);
+    
+    var w0 = edgeFunction(vb.pos.x, vb.pos.y,
+                          vc.pos.x, vc.pos.y,
+                          pos.x, pos.y) / area;
+    
+    var w1 = edgeFunction(vc.pos.x, vc.pos.y,
+                          va.pos.x, va.pos.y,
+                          pos.x, pos.y) / area;
+    var w2 = 1.0 - w0 - w1;
+    
+    w0 /= va.w;
+    w1 /= va.w;
+    w2 /= va.w;
+    const w_sum = w0 + w1 + w2;
+    w0 /= w_sum;
+    w1 /= w_sum;
+    w2 /= w_sum;
+    
+    result.color.r = w0 * va.color.r + w1 * vb.color.r + w2 * vc.color.r;
+    result.color.g = w0 * va.color.g + w1 * vb.color.g + w2 * vc.color.g;
+    result.color.b = w0 * va.color.b + w1 * vb.color.b + w2 * vc.color.b;
+    result.color.a = w0 * va.color.a + w1 * vb.color.a + w2 * vc.color.a;
+    
+    return result;
+}
