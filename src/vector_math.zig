@@ -71,6 +71,21 @@ pub const Vertex = struct {
     }
 };
 
+pub fn lerp(a: f32, b: f32, t: f32) f32 {
+    const result = (1 - t) * a + t * b;
+    return result;
+}
+
+pub fn Color_lerp(ca: Color, cb: Color, t: f32) Color {
+    const result = Color{
+        .r = lerp(ca.r, cb.r, t),
+        .g = lerp(ca.g, cb.g, t),
+        .b = lerp(ca.b, cb.b, t),
+        .a = lerp(ca.a, cb.a, t),
+    };
+    return result;
+}
+
 pub fn Vec3_add(va: Vec3, vb: Vec3) Vec3 {
     const result = Vec3{
         .x = va.x + vb.x,

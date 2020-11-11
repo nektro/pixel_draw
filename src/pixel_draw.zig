@@ -702,10 +702,21 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
         dir = Vec3_normalize(Vec3_sub(triangle[out_i].pos, triangle[in_i2].pos));
         const pos2 = lineIntersectPlane(triangle[in_i2].pos, dir, plane).?;
         
+        const t1 = Vec3_len( Vec3_sub(result.triangle0[in_i1].pos, pos1)) /
+            Vec3_len( Vec3_sub(result.triangle0[in_i1].pos, result.triangle0[out_i].pos));
+        
+        const t2 = Vec3_len( Vec3_sub(result.triangle0[in_i2].pos, pos2)) /
+            Vec3_len( Vec3_sub(result.triangle0[in_i2].pos, result.triangle0[out_i].pos));
+        
         result.triangle0[out_i].pos = pos1;
+        result.triangle0[out_i].color = Color_lerp(result.triangle0[in_i1].color,
+                                                   result.triangle0[out_i].color, t1);
         
         result.triangle1[out_i].pos = pos2;
         result.triangle1[in_i1].pos = pos1;
+        result.triangle1[out_i].color = Color_lerp(result.triangle0[in_i2].color,
+                                                   result.triangle0[out_i].color, t1);
+        result.triangle1[in_i1].color = result.triangle0[out_i].color;
         
         result.count = 2;
     } else if (out_count == 2) {
@@ -721,9 +732,22 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
         
         const dir1 = Vec3_normalize(Vec3_sub(triangle[out_i1].pos, triangle[in_i].pos));
         const dir2 = Vec3_normalize(Vec3_sub(triangle[out_i2].pos, triangle[in_i].pos));
-        result.triangle0[out_i1].pos = lineIntersectPlane(triangle[in_i].pos, dir1, plane).?;
-        result.triangle0[out_i2].pos = lineIntersectPlane(triangle[in_i].pos, dir2, plane).?;
         
+        const pos1 = lineIntersectPlane(triangle[in_i].pos, dir1, plane).?;
+        const pos2 = lineIntersectPlane(triangle[in_i].pos, dir2, plane).?;
+        
+        const t1 = Vec3_len( Vec3_sub(result.triangle0[out_i1].pos, pos1)) /
+            Vec3_len( Vec3_sub(result.triangle0[out_i1].pos, result.triangle0[in_i].pos));
+        
+        const t2 = Vec3_len( Vec3_sub(result.triangle0[out_i1].pos, pos1)) /
+            Vec3_len( Vec3_sub(result.triangle0[out_i1].pos, result.triangle0[in_i].pos));
+        
+        result.triangle0[out_i1].pos = pos1;
+        result.triangle0[out_i1].color = Color_lerp(result.triangle0[in_i].color,
+                                                    result.triangle0[out_i1].color, t1);
+        result.triangle0[out_i2].pos = pos2;
+        result.triangle0[out_i2].color = Color_lerp(result.triangle0[in_i].color,
+                                                    result.triangle0[out_i2].color, t2);
     } else if (out_count == 3) {
         result.count = 0;
     }
