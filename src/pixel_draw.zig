@@ -9,7 +9,8 @@ usingnamespace if (@import("builtin").os.tag == .windows)
 else
 @import("xlib_plataform.zig");
 
-usingnamespace @import("vector_math.zig");
+pub const vector_math = @import("vector_math.zig");
+usingnamespace vector_math;
 
 // ===== Input =====
 const MouseButtons = enum(u32) {

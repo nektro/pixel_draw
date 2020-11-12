@@ -5,8 +5,8 @@ const assert = std.debug.assert;
 const fs = std.fs;
 const math = std.math;
 
-usingnamespace @import("vector_math.zig");
 const draw = @import("pixel_draw.zig");
+usingnamespace draw.vector_math;
 const Texture = draw.Texture;
 
 // === Global Variables ===
