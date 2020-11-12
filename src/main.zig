@@ -25,6 +25,8 @@ pub fn main() anyerror!void {
     end();
 }
 
+var quad_mesh: draw.Mesh = undefined;
+
 fn start() void {
     font = .{
         .texture = draw.textureFromTgaData(main_allocator, @embedFile("../assets/font.tga")) catch unreachable,
@@ -33,6 +35,9 @@ fn start() void {
         .character_spacing = 11,
     };
     potato = draw.textureFromTgaData(main_allocator, @embedFile("../assets/potato.tga")) catch unreachable;
+    
+    cube_mesh.texture = potato;
+    quad_mesh = draw.createQuadMesh(main_allocator, 20, 20, 10, 10, potato);
 }
 
 fn end() void {
@@ -54,74 +59,83 @@ var matrix = [4][4]f32{
     .{0,  0, -1, 0},
 };
 
+var cube_v = [_]Vertex {
+    Vertex.c(Vec3.c(-0.5,  0.5,  0.5), Color.c(0, 0, 0, 1), Vec2.c(0, 1)),
+    Vertex.c(Vec3.c( 0.5,  0.5,  0.5), Color.c(0, 0, 1, 1), Vec2.c(1, 1)),
+    Vertex.c(Vec3.c(-0.5, -0.5,  0.5), Color.c(0, 1, 0, 1), Vec2.c(0, 0)),
+    Vertex.c(Vec3.c( 0.5, -0.5,  0.5), Color.c(0, 1, 1, 1), Vec2.c(1, 0)),
+    
+    Vertex.c(Vec3.c(-0.5,  0.5, -0.5), Color.c(1, 0, 0, 1), Vec2.c(1, 1)),
+    Vertex.c(Vec3.c( 0.5,  0.5, -0.5), Color.c(1, 0, 1, 1), Vec2.c(0, 1)),
+    Vertex.c(Vec3.c(-0.5, -0.5, -0.5), Color.c(1, 1, 0, 1), Vec2.c(1, 0)),
+    Vertex.c(Vec3.c( 0.5, -0.5, -0.5), Color.c(1, 1, 1, 1), Vec2.c(0, 0)),
+};
+
+var cube_i = [_]u32{
+    0, 2, 3,
+    0, 3, 1,
+    1, 3, 7,
+    1, 7, 5,
+    4, 0, 1,
+    4, 1, 5,
+    4, 6, 2,
+    4, 2, 0,
+    6, 3, 2,
+    6, 7, 3,
+    5, 7, 6,
+    5, 6, 4,
+};
+
+var cube_mesh = draw.Mesh{
+    .v = &cube_v,
+    .i = &cube_i,
+    .texture = undefined,
+};
+
+
 fn update(delta: f32) void {
     // Update perspective matrix with the aspect ratio
     matrix[0][0] = -S * (@intToFloat(f32, draw.win_height) / @intToFloat(f32, draw.win_width));
     
     draw.fillScreenWithRGBColor(50, 100, 150);
     
-    var mx = [_]f32{-0.5, 0.5, -0.5,  0.5, -0.5,  0.5, -0.5,  0.5};
-    var my = [_]f32{ 0.5, 0.5, -0.5, -0.5,  0.5,  0.5, -0.5, -0.5};
-    var mz = [_]f32{ 0.5, 0.5,  0.5,  0.5, -0.5, -0.5, -0.5, -0.5};
-    
-    var vertices = [_]Vertex {
-        Vertex.c(Vec3.c(-0.5,  0.5,  0.5), Color.c(0, 0, 0, 1), .{}),
-        Vertex.c(Vec3.c( 0.5,  0.5,  0.5), Color.c(0, 0, 1, 1), .{}),
-        Vertex.c(Vec3.c(-0.5, -0.5,  0.5), Color.c(0, 1, 0, 1), .{}),
-        Vertex.c(Vec3.c( 0.5, -0.5,  0.5), Color.c(0, 1, 1, 1), .{}),
-        Vertex.c(Vec3.c(-0.5,  0.5, -0.5), Color.c(1, 0, 0, 1), .{}),
-        Vertex.c(Vec3.c( 0.5,  0.5, -0.5), Color.c(1, 0, 1, 1), .{}),
-        Vertex.c(Vec3.c(-0.5, -0.5, -0.5), Color.c(1, 1, 0, 1), .{}),
-        Vertex.c(Vec3.c( 0.5, -0.5, -0.5), Color.c(1, 1, 1, 1), .{}),
-    };
-    
-    var mi = [_]u32{
-        0, 2, 3,
-        0, 3, 1,
-        1, 3, 7,
-        1, 7, 5,
-        4, 0, 1,
-        4, 1, 5,
-        4, 6, 2,
-        4, 2, 0,
-        6, 3, 2,
-        6, 7, 3,
-        5, 7, 6,
-        5, 6, 4,
-    };
-    
     // NOTE(Samuel): Mesh Transformation
     
-    if (draw.keyPressed(.d)) cam.pos.x += delta; 
-    if (draw.keyPressed(.a)) cam.pos.x -= delta; 
+    if (draw.keyPressed(.d)) cam.pos.x += delta * 2; 
+    if (draw.keyPressed(.a)) cam.pos.x -= delta * 2; 
     
-    if (draw.keyPressed(.w)) cam.pos.y += delta; 
-    if (draw.keyPressed(.s)) cam.pos.y -= delta; 
+    if (draw.keyPressed(.w)) cam.pos.y += delta * 2; 
+    if (draw.keyPressed(.s)) cam.pos.y -= delta * 2; 
     
-    if (draw.keyPressed(.up)) cam.pos.z -= delta; 
-    if (draw.keyPressed(.down)) cam.pos.z += delta;
+    if (draw.keyPressed(.up)) cam.pos.z -= delta * 2; 
+    if (draw.keyPressed(.down)) cam.pos.z += delta * 2;
     
-    if (draw.keyPressed(.right)) theta += delta;
-    if (draw.keyPressed(.left)) theta -= delta;
-    
-    var mesh = draw.Mesh{
-        .v = &vertices,
-        .i = &mi,
-        .texture = potato,
-    };
+    var theta: f32 = 0.0;
+    if (draw.keyPressed(.right)) theta = delta;
+    if (draw.keyPressed(.left)) theta = -delta;
     
     var i: u32 = 0;
-    while (i < mesh.v.len) : (i += 1) {
+    while (i < quad_mesh.v.len) : (i += 1) {
         // Rotate in Y
-        const new_x = mesh.v[i].pos.x * @cos(theta) + mesh.v[i].pos.z * @sin(theta);
-        const new_z = -mesh.v[i].pos.x * @sin(theta) + mesh.v[i].pos.z * @cos(theta);
-        mesh.v[i].pos.x = new_x;
-        mesh.v[i].pos.z = new_z;
+        const new_x = quad_mesh.v[i].pos.x * @cos(theta) + quad_mesh.v[i].pos.z * @sin(theta);
+        const new_z = -quad_mesh.v[i].pos.x * @sin(theta) + quad_mesh.v[i].pos.z * @cos(theta);
+        quad_mesh.v[i].pos.x = new_x;
+        quad_mesh.v[i].pos.z = new_z;
+    }
+    i = 0;
+    while (i < cube_mesh.v.len) : (i += 1) {
+        // Rotate in Y
+        const new_x = cube_mesh.v[i].pos.x * @cos(theta) + cube_mesh.v[i].pos.z * @sin(theta);
+        const new_z = -cube_mesh.v[i].pos.x * @sin(theta) + cube_mesh.v[i].pos.z * @cos(theta);
+        cube_mesh.v[i].pos.x = new_x;
+        cube_mesh.v[i].pos.z = new_z;
     }
     
-    draw.drawMesh(mesh, .Faces, matrix, cam);
-    draw.drawMesh(mesh, .Lines, matrix, cam);
-    //draw.drawMesh(mesh, .Points, matrix, cam);
+    draw.drawMesh(quad_mesh, .Texture, matrix, cam);
+    //draw.drawMesh(quad_mesh, .Lines, matrix, cam);
+    
+    draw.drawMesh(cube_mesh, .Texture, matrix, cam);
+    //draw.drawMesh(cube_mesh, .Lines, matrix, cam);
     
     { // Show fps
         const fpst = std.fmt.bufPrint(&print_buff, "{d:0.4}/{d:0.4}", .{ 1 / delta, delta }) catch unreachable;
@@ -131,4 +145,4 @@ fn update(delta: f32) void {
 
 var cam: draw.Camera3D = .{.pos = .{.z = 2.0}};
 
-var theta: f32 = 0.0;
+

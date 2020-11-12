@@ -272,3 +272,7 @@ pub fn baricentricCoordinates(a: anytype, b: anytype,
     var w2 = 1.0 - w0 - w1;
     return Vec3.c(w0, w1, w2);
 }
+
+
+
+

@@ -97,17 +97,17 @@ pub const Texture = struct {
 };
 
 // Simple texture mapping function, no filter
-pub inline fn textureMap(u: f32, v: f32, tex: Texture) [4]f32 {
+pub inline fn textureMap(u: f32, v: f32, tex: Texture) Color {
     const tex_u = @floatToInt(u32, (@intToFloat(f32, tex.width) * u)) % tex.width;
     const tex_v = @floatToInt(u32, (@intToFloat(f32, tex.height) * v)) % tex.height;
     
     const tex_pos = (tex_u + tex_v * tex.height) * 4;
     const pixel = tex.raw[tex_pos..][0..4];
-    return [4]f32 {
-        @intToFloat(f32, pixel[0]) / 255.0,
-        @intToFloat(f32, pixel[1]) / 255.0,
-        @intToFloat(f32, pixel[2]) / 255.0,
-        @intToFloat(f32, pixel[3]) / 255.0,
+    return Color {
+        .r = @intToFloat(f32, pixel[2]) / 255.0,
+        .g = @intToFloat(f32, pixel[1]) / 255.0,
+        .b = @intToFloat(f32, pixel[0]) / 255.0,
+        .a = @intToFloat(f32, pixel[3]) / 255.0,
     };
 }
 
@@ -605,9 +605,20 @@ pub fn fillTriangle(xa: i32, ya: i32, xb: i32, yb: i32, xc: i32, yc: i32, color:
     }
 }
 
-pub fn fillTriangleColors(xa: i32, ya: i32, xb: i32, yb: i32, xc: i32, yc: i32,
-                          color_a: Color, color_b: Color, color_c: Color,
-                          vw_a: f32, vw_b: f32, vw_c: f32) void {
+pub inline fn screenToPixel(sc: f32, screen_size: u32) i32 {
+    return @floatToInt(i32, (sc + 1.0) * 0.5 * @intToFloat(f32, screen_size));
+}
+
+pub fn rasterTriangle(triangle: [3]Vertex, texture: Texture, face_lighting: f32) void {
+    
+    const xa = screenToPixel(triangle[0].pos.x, win_width);
+    const xb = screenToPixel(triangle[1].pos.x, win_width);
+    const xc = screenToPixel(triangle[2].pos.x, win_width);
+    
+    const ya = screenToPixel(-triangle[0].pos.y, win_height);
+    const yb = screenToPixel(-triangle[1].pos.y, win_height);
+    const yc = screenToPixel(-triangle[2].pos.y, win_height);
+    
     const x_left  = math.max(math.min(math.min(xa, xb), xc), 0);
     const x_right = math.min(math.max(math.max(xa, xb), xc), @intCast(i32, win_width - 1));
     const y_up    = math.max(math.min(math.min(ya, yb),yc), 0);
@@ -618,6 +629,8 @@ pub fn fillTriangleColors(xa: i32, ya: i32, xb: i32, yb: i32, xc: i32, yc: i32,
         const area = @intToFloat(f32, edgeFunctionI(xa, ya, xb, yb, xc, yc));
         
         var x: i32 = x_left;
+        const db_iy = y * @intCast(i32, win_width);
+        
         while (x <= x_right) : (x += 1) {
             var w0 = @intToFloat(f32, edgeFunctionI(xb, yb, xc, yc, x, y)) / area;
             var w1 = @intToFloat(f32, edgeFunctionI(xc, yc, xa, ya, x, y)) / area;
@@ -625,20 +638,29 @@ pub fn fillTriangleColors(xa: i32, ya: i32, xb: i32, yb: i32, xc: i32, yc: i32,
             if (w0 >= 0 and w1 >= 0 and w2 >= 0) {
                 // NOTE(Samuel): Correct for perpective
                 
-                w0 /= vw_a;
-                w1 /= vw_b;
-                w2 /= vw_c;
+                w0 /= triangle[0].w;
+                w1 /= triangle[1].w;
+                w2 /= triangle[2].w;
                 const w_sum = w0 + w1 + w2;
                 w0 /= w_sum;
                 w1 /= w_sum;
                 w2 /= w_sum;
                 
-                var color: Color = .{};
-                color.r = color_a.r * w0 + color_b.r * w1 + color_c.r * w2;
-                color.g = color_a.g * w0 + color_b.g * w1 + color_c.g * w2;
-                color.b = color_a.b * w0 + color_b.b * w1 + color_c.b * w2;
-                color.a = color_a.a * w0 + color_b.a * w1 + color_c.a * w2;
-                putPixel(x, y, color);
+                var db_i = @intCast(u32, x + db_iy);
+                const z = triangle[0].w * w0 + triangle[1].w * w1 + triangle[2].w * w2;
+                
+                if (depth_buffer[db_i] > z) {
+                    depth_buffer[db_i] = z;
+                    
+                    var uv: Vec2 = .{};
+                    uv.x = triangle[0].uv.x * w0 + triangle[1].uv.x * w1 + triangle[2].uv.x * w2;
+                    uv.y = triangle[0].uv.y * w0 + triangle[1].uv.y * w1 + triangle[2].uv.y * w2;
+                    var color = textureMap(uv.x, uv.y, texture);
+                    color.r *= face_lighting;
+                    color.g *= face_lighting;
+                    color.b *= face_lighting;
+                    putPixel(x, y, color);
+                }
             }
         }
     }
@@ -660,10 +682,78 @@ pub const Mesh = struct {
     texture: Texture,
 };
 
+/// Return a random float from 0 to 1
+var prng = std.rand.DefaultPrng.init(0);
+inline fn randomFloat(comptime T: type) T {
+    return prng.random.float(T);
+}
+
+pub fn createQuadMesh(al: *Allocator, size_x: u32, size_y: u32,
+                      center_x: f32, center_y: f32, texture: Texture) Mesh
+{
+    var result = Mesh{
+        .v = al.alloc(Vertex, (size_x + 1) * (size_y + 1)) catch unreachable,
+        .i = al.alloc(u32, size_x * size_y * 6) catch unreachable,
+        .texture = texture,
+    };
+    
+    // Init Vertex
+    for (result.v) |*v, i| {
+        v.pos.x = @intToFloat(f32, i % (size_x + 1)) - center_x;
+        v.pos.y = @intToFloat(f32, i / (size_x + 1)) - center_y;
+        v.pos.z = 0.0;
+        
+        v.uv.x = (v.pos.x + center_x) / @intToFloat(f32, size_x);
+        v.uv.y = (v.pos.y + center_y) / @intToFloat(f32, size_y);
+        
+        v.color.a = 1.0;
+        v.color.r = randomFloat(f32);
+        v.color.g = randomFloat(f32);
+        v.color.b = randomFloat(f32);
+    }
+    
+    // Set indexes
+    var index: u32 = 0;
+    var y: u32 = 0;
+    while (y < size_y) : (y += 1) {
+        var x: u32 = 0;
+        while (x < size_x) : (x += 1) {
+            // first triangle
+            var i = x + y * (size_x + 1);
+            result.i[index] = i;
+            index += 1;
+            
+            i = (x + 1) + (y + 1) * (size_x + 1);
+            result.i[index] = i;
+            index += 1;
+            
+            i = x + (y + 1) * (size_x + 1);
+            result.i[index] = i;
+            index += 1;
+            
+            // Second Triangle
+            i = (x + 1) + y * (size_x + 1);
+            result.i[index] = i;
+            index += 1;
+            
+            i = (x + 1) + (y + 1) * (size_x + 1);
+            result.i[index] = i;
+            index += 1;
+            
+            i = x + y * (size_x + 1);
+            result.i[index] = i;
+            index += 1;
+        }
+    }
+    
+    return result;
+}
+
 const RasterMode = enum {
     Points,
     Lines,
     Faces,
+    Texture,
 };
 
 pub const Camera3D = struct {
@@ -796,11 +886,12 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, proj_matrix: [4][4]f32,
         if (face_normal_dir > 0.0) continue;
         
         // Lighting
-        var dp: f32 = 0.0;
+        var face_lighting: f32 = 0.0;
         {
             var ld = Vec3_normalize(Vec3.c(0.0, 1.0, 1.0));
-            dp = Vec3_dot(ld, n);
-            if (dp < 0.1) dp = 0.1;
+            
+            face_lighting = Vec3_dot(ld, n);
+            if (face_lighting < 0.1) face_lighting = 0.1;
         }
         
         var triangle_l: [16][3]Vertex = undefined;
@@ -886,45 +977,32 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, proj_matrix: [4][4]f32,
         while (tl_index < triangle_l_len) : (tl_index += 1) {
             triangle = triangle_l[tl_index];
             
-            const pixel_size_y = 1.0 / @intToFloat(f32, win_height);
-            const pixel_size_x = 1.0 / @intToFloat(f32, win_width);
-            
-            const pa_x = @floatToInt(i32, (triangle[0].pos.x + 1) / (2 * pixel_size_x));
-            const pa_y = @floatToInt(i32, (-triangle[0].pos.y + 1) / (2 * pixel_size_y));
-            
-            const pb_x = @floatToInt(i32, (triangle[1].pos.x + 1) / (2 * pixel_size_x));
-            const pb_y = @floatToInt(i32, (-triangle[1].pos.y + 1) / (2 * pixel_size_y));
-            
-            const pc_x = @floatToInt(i32, (triangle[2].pos.x + 1) / (2 * pixel_size_x));
-            const pc_y = @floatToInt(i32, (-triangle[2].pos.y + 1) / (2 * pixel_size_y));
-            
             switch (mode) {
-                .Points => {
-                    fillCircle(pa_x, pa_y, 5, triangle[0].color);
-                    fillCircle(pb_x, pb_y, 5, triangle[1].color);
-                    fillCircle(pc_x, pc_y, 5, triangle[2].color);
+                .Points, .Lines => {
+                    const pixel_size_y = 1.0 / @intToFloat(f32, win_height);
+                    const pixel_size_x = 1.0 / @intToFloat(f32, win_width);
                     
+                    const pa_x = @floatToInt(i32, (triangle[0].pos.x + 1) / (2 * pixel_size_x));
+                    const pa_y = @floatToInt(i32, (-triangle[0].pos.y + 1) / (2 * pixel_size_y));
+                    
+                    const pb_x = @floatToInt(i32, (triangle[1].pos.x + 1) / (2 * pixel_size_x));
+                    const pb_y = @floatToInt(i32, (-triangle[1].pos.y + 1) / (2 * pixel_size_y));
+                    
+                    const pc_x = @floatToInt(i32, (triangle[2].pos.x + 1) / (2 * pixel_size_x));
+                    const pc_y = @floatToInt(i32, (-triangle[2].pos.y + 1) / (2 * pixel_size_y));
+                    
+                    if (mode == .Points) {
+                        fillCircle(pa_x, pa_y, 5, triangle[0].color);
+                        fillCircle(pb_x, pb_y, 5, triangle[1].color);
+                        fillCircle(pc_x, pc_y, 5, triangle[2].color);
+                    } else if (mode == .Lines) {
+                        const line_color = Color.c(1, 1, 1, 1);
+                        drawTriangle(pa_x, pa_y, pb_x, pb_y, pc_x, pc_y, line_color, 1);
+                    }
                 },
-                .Lines => {
-                    const line_color = Color.c(1, 1, 1, 1);
-                    drawTriangle(pa_x, pa_y, pb_x, pb_y, pc_x, pc_y, line_color, 1);
-                },
-                .Faces => {
-                    var color1 = triangle[0].color;
-                    color1.r *= dp;
-                    color1.g *= dp;
-                    color1.b *= dp;
-                    var color2 = triangle[1].color;
-                    color2.r *= dp;
-                    color2.g *= dp;
-                    color2.b *= dp;
-                    var color3 = triangle[2].color;
-                    color3.r *= dp;
-                    color3.g *= dp;
-                    color3.b *= dp;
-                    fillTriangleColors(pa_x, pa_y, pb_x, pb_y, pc_x, pc_y,
-                                       color1, color2, color3,
-                                       triangle[0].w, triangle[1].w, triangle[2].w);
+                .Faces => { },
+                .Texture => {
+                    rasterTriangle(triangle, mesh.texture, face_lighting);
                 },
             }
         }

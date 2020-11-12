@@ -144,8 +144,7 @@ pub fn plataformInit(
         initTime = std.time.nanoTimestamp();
         // std.debug.print("{d:0.4} {d:0.4}\n", .{ 1.0 / delta, delta });
         
-        for (depth_buffer) |*it| it.* = 1.0;
-        //for (depth_buffer) |*it| it.* = std.math.inf_f32;
+        for (depth_buffer) |*it| it.* = std.math.inf_f32;
         
         var event: c.XEvent = undefined;
         
@@ -258,9 +257,10 @@ pub fn plataformInit(
             
             // Free memory
             main_allocator.free(screen_buffer);
-            main_allocator.free(depth_buffer);
             const new_size = win_width * win_height * pixel_bytes;
             screen_buffer = try main_allocator.alloc(u8, new_size);
+            
+            main_allocator.free(depth_buffer);
             depth_buffer = try main_allocator.alloc(f32, win_width * win_height);
             
             x_window_buffer = c.XCreateImage(

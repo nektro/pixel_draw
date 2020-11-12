@@ -292,6 +292,11 @@ fn win32ResizeDibSection(width: u32, height: u32) void {
     
     main_allocator.free(bitmap_memory);
     bitmap_memory = main_allocator.alloc(u32, width * height * 4) catch unreachable;
+    
+    main_allocator.free(depth_buffer);
+    depth_buffer = main_allocator.alloc(f32, win_width * win_height) catch unreachable;
+    
+    
     screen_buffer = @ptrCast(*[]u8, &bitmap_memory).*;
 }
 
@@ -309,6 +314,7 @@ fn win32UpadateWindow(device_context: win.HDC) void {
 // === Globals =======================================
 var bitmap_memory: []u32 = undefined;
 pub var screen_buffer: []u8 = undefined;
+pub var depth_buffer: []f32 = undefined;
 pub var main_allocator: *std.mem.Allocator = undefined;
 pub var win_width: u32 = 800;
 pub var win_height: u32 = 600;
@@ -356,6 +362,8 @@ pub fn plataformInit(al: *std.mem.Allocator,
         _ = usr32.ShowWindow(window_handle, 1);
         
         win32ResizeDibSection(w_width, w_height);
+        //depth_buffer = try main_allocator.alloc(f32, win_width * win_height);
+        
         start_fn();
         
         var delta: f32 = 0.0;
@@ -367,6 +375,8 @@ pub fn plataformInit(al: *std.mem.Allocator,
             initTime = std.time.nanoTimestamp() - initTime;
             delta = @floatCast(f32, @intToFloat(f64, initTime) / 1000000000);
             initTime = std.time.nanoTimestamp();
+            
+            for (depth_buffer) |*it| it.* = std.math.inf_f32;
             
             for (keys_up) |*it| it.* = false;
             for (keys_down) |*it| it.* = false;
