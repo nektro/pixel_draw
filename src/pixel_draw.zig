@@ -732,47 +732,8 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
         
         const pos1 = lineIntersectPlaneT(triangle[in_i1].pos, triangle[out_i].pos, plane, &t1);
         const pos2 = lineIntersectPlaneT(triangle[in_i2].pos, triangle[out_i].pos, plane, &t2);
-        
-        var color1 = Color{};
-        var color2 = Color{};
-        
-        if (false) {
-            var bc1 = baricentricCoordinates(triangle[in_i1].pos, triangle[in_i2].pos,
-                                             triangle[out_i].pos, pos1);
-            
-            var bc2 = baricentricCoordinates(triangle[in_i1].pos, triangle[in_i2].pos,
-                                             triangle[out_i].pos, pos2);
-            bc1.x /= triangle[in_i1].w;
-            bc1.y /= triangle[in_i2].w;
-            bc1.z /= triangle[out_i].w;
-            var w_sum = bc1.x + bc1.y + bc1.z;
-            bc1 = Vec3_div_F(bc1, w_sum);
-            
-            bc2.x /= triangle[in_i1].w;
-            bc2.y /= triangle[in_i2].w;
-            bc2.z /= triangle[out_i].w;
-            w_sum = bc2.x + bc2.y + bc2.z;
-            bc2 = Vec3_div_F(bc2, w_sum);
-            
-            color1 = Color{
-                .r = triangle[in_i1].color.r * bc1.x + triangle[in_i2].color.r * bc1.y + triangle[out_i].color.r * bc1.z,
-                .g = triangle[in_i1].color.g * bc1.x + triangle[in_i2].color.g * bc1.y + triangle[out_i].color.g * bc1.z,
-                .b = triangle[in_i1].color.b * bc1.x + triangle[in_i2].color.b * bc1.y + triangle[out_i].color.b * bc1.z,
-                .a = triangle[in_i1].color.a * bc1.x + triangle[in_i2].color.a * bc1.y + triangle[out_i].color.a * bc1.z,
-            };
-            
-            color2 = Color{
-                .r = triangle[in_i1].color.r * bc2.x + triangle[in_i2].color.r * bc2.y + triangle[out_i].color.r * bc2.z,
-                .g = triangle[in_i1].color.g * bc2.x + triangle[in_i2].color.g * bc2.y + triangle[out_i].color.g * bc2.z,
-                .b = triangle[in_i1].color.b * bc2.x + triangle[in_i2].color.b * bc2.y + triangle[out_i].color.b * bc2.z,
-                .a = triangle[in_i1].color.a * bc2.x + triangle[in_i2].color.a * bc2.y + triangle[out_i].color.a * bc2.z,
-            };
-        } else {
-            color1 = Color_lerp(triangle[in_i1].color,
-                                triangle[out_i].color, t1);
-            color2 = Color_lerp(triangle[in_i2].color,
-                                triangle[out_i].color, t2);
-        }
+        const color1 = Color_lerp(triangle[in_i1].color, triangle[out_i].color, t1);
+        const color2 = Color_lerp(triangle[in_i2].color, triangle[out_i].color, t2);
         
         result.triangle0[out_i].color = color1;
         result.triangle1[in_i1].color = color1;
@@ -798,14 +759,11 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
         var t2: f32 = 0.0;
         const pos1 = lineIntersectPlaneT(triangle[out_i1].pos, triangle[in_i].pos, plane, &t1);
         const pos2 = lineIntersectPlaneT(triangle[out_i2].pos, triangle[in_i].pos, plane, &t2);
+        const color1 = Color_lerp(triangle[out_i1].color, triangle[in_i].color, t1);
+        const color2 = Color_lerp(triangle[out_i2].color, triangle[in_i].color, t2);
         
-        //t1 /= triangle[out_i1].w;
-        //t2 /= triangle[out_i2].w;
-        
-        result.triangle0[out_i1].color = Color_lerp(triangle[out_i1].color,
-                                                    triangle[in_i].color, t1);
-        result.triangle0[out_i2].color = Color_lerp(triangle[out_i2].color,
-                                                    triangle[in_i].color, t2);
+        result.triangle0[out_i1].color = color1;
+        result.triangle0[out_i2].color = color2;
         result.triangle0[out_i1].pos = pos1;
         result.triangle0[out_i2].pos = pos2;
     } else if (out_count == 3) {
