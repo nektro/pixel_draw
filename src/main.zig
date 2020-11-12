@@ -13,6 +13,7 @@ const Texture = draw.Texture;
 var main_allocator: *Allocator = undefined;
 var font: draw.BitmapFont = undefined;
 var potato: Texture = undefined;
+var bad_floor: Texture = undefined;
 
 pub fn main() anyerror!void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -34,9 +35,10 @@ fn start() void {
         .character_spacing = 11,
     };
     potato = draw.textureFromTgaData(main_allocator, @embedFile("../assets/potato.tga")) catch unreachable;
+    bad_floor = draw.textureFromTgaData(main_allocator, @embedFile("../assets/bad_floor.tga")) catch unreachable;
     
     cube_mesh.texture = potato;
-    quad_mesh = draw.createQuadMesh(main_allocator, 21, 21, 10.5, 10.5, potato, .Tile);
+    quad_mesh = draw.createQuadMesh(main_allocator, 21, 21, 10.5, 10.5, bad_floor, .Tile);
     
     for (quad_mesh.v) |*v| {
         v.pos = rotateVectorOnX(v.pos, 3.1415926535 * 0.5);
