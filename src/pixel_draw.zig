@@ -123,10 +123,7 @@ pub fn colorFromRgba(r: u8, g: u8, b: u8, a: u8) Color {
 /// This function is problably very unsafe
 /// it will change later
 pub fn textureFromBmpData(bmp_data: []const u8) !Texture {
-    const header: *const BmpHeader = @ptrCast(
-                                              *const BmpHeader,
-                                              bmp_data[0..@sizeOf(BmpHeader)],
-                                              );
+    const header: *const BmpHeader = @ptrCast(*const BmpHeader, bmp_data[0..@sizeOf(BmpHeader)]);
     
     if (header.file_type != 0x4d42) return error.NotBmpFile;
     if (header.compression != 3) return error.CompressedFile;
@@ -276,11 +273,7 @@ pub fn fillCircle(x: i32, y: i32, r: u32, color: Color) void {
         var u: i32 = -@intCast(i32, r);
         while (u <= r) : (u += 1) {
             if (u * u + v * v < (r * r)) {
-                putPixel(
-                         x + u,
-                         y + v,
-                         color,
-                         );
+                putPixel(x + u, y + v, color);
             }
         }
     }
@@ -302,14 +295,8 @@ pub fn drawBitmapFont(text: []const u8, x: u32, y: u32,
         const fx = char_index % 16 * font.font_size_x;
         const fy = char_index / 16 * font.font_size_y;
         
-        drawBitmapChar(
-                       t,
-                       x + @intCast(u32, i) * scale_x * font.character_spacing,
-                       y,
-                       scale_x,
-                       scale_y,
-                       font,
-                       );
+        const x_pos = x + @intCast(u32, i) * scale_x * font.character_spacing;
+        drawBitmapChar(t, x_pos, y, scale_x, scale_y, font);
     }
 }
 
@@ -333,10 +320,9 @@ pub fn drawBitmapChar(char: u8, x: u32, y: u32,
             while (sy < scale_y) : (sy += 1) {
                 var sx: u32 = 0;
                 while (sx < scale_x) : (sx += 1) {
-                    putPixelRGBA(x + xi * scale_x + sx,
-                                 y + yi * scale_y + sy,
-                                 color[0], color[1],
-                                 color[2], color[3]);
+                    const x_pos = x + xi * scale_x + sx;
+                    const y_pos = y + yi * scale_y + sy;
+                    putPixelRGBA(x_pos , y_pos, color[0], color[1], color[2], color[3]);
                 }
             }
         }
@@ -466,6 +452,7 @@ pub fn drawRect(x: i32, y: i32, w: u32, h: u32, color: Color) void {
     }
 }
 
+/// draw a line with a width of 1 pixel
 pub fn drawLine(xa: i32, ya: i32, xb: i32, yb: i32, color: Color) void {
     const xr = std.math.max(xa, xb);
     const xl = std.math.min(xa, xb);
@@ -513,6 +500,7 @@ pub fn drawLine(xa: i32, ya: i32, xb: i32, yb: i32, color: Color) void {
     }
 }
 
+/// Draw a line with a width defined by line_width
 pub fn drawLineWidth(xa: i32, ya: i32, xb: i32, yb: i32,
                      color: Color, line_width: u32) void
 {
@@ -576,12 +564,12 @@ pub fn fillScreenWithRGBColor(r: u8, g: u8, b: u8) void {
     }
 }
 
-pub inline fn i32Abs(n: i32) i32 {
-    return n * (-1 + 2 * @intCast(i32, @boolToInt(n > 0)));
-}
-
-pub inline fn f32Frac(n: f32) f32 {
-    return n - @trunc(n);
+pub inline fn drawTriangle(xa: i32, ya: i32, xb: i32, yb: i32, xc: i32, yc: i32,
+                           color: Color, line_width: u32) void
+{
+    drawLineWidth(xa, ya, xb, yb, color, line_width);
+    drawLineWidth(xb, yb, xc, yc, color, line_width);
+    drawLineWidth(xc, yc, xa, ya, color, line_width);
 }
 
 pub fn fillTriangle(xa: i32, ya: i32, xb: i32, yb: i32, xc: i32, yc: i32, color: Color) void {
@@ -605,12 +593,13 @@ pub fn fillTriangle(xa: i32, ya: i32, xb: i32, yb: i32, xc: i32, yc: i32, color:
     }
 }
 
+/// Converts screen coordinates (-1, 1) to pixel coordinates (0, screen size)
 pub inline fn screenToPixel(sc: f32, screen_size: u32) i32 {
     return @floatToInt(i32, (sc + 1.0) * 0.5 * @intToFloat(f32, screen_size));
 }
 
+/// Raster a triangle
 pub fn rasterTriangle(triangle: [3]Vertex, texture: Texture, face_lighting: f32) void {
-    
     const xa = screenToPixel(triangle[0].pos.x, win_width);
     const xb = screenToPixel(triangle[1].pos.x, win_width);
     const xc = screenToPixel(triangle[2].pos.x, win_width);
@@ -666,15 +655,7 @@ pub fn rasterTriangle(triangle: [3]Vertex, texture: Texture, face_lighting: f32)
     }
 }
 
-pub inline fn drawTriangle(xa: i32, ya: i32, xb: i32, yb: i32, xc: i32, yc: i32,
-                           color: Color, line_width: u32) void
-{
-    drawLineWidth(xa, ya, xb, yb, color, line_width);
-    drawLineWidth(xb, yb, xc, yc, color, line_width);
-    drawLineWidth(xc, yc, xa, ya, color, line_width);
-}
-
-// ==== 3d struff ====
+// ==== 3d stuff ====
 
 pub const Mesh = struct {
     v: []Vertex,
@@ -688,6 +669,8 @@ inline fn randomFloat(comptime T: type) T {
     return prng.random.float(T);
 }
 
+
+/// Creates a mesh made with quads with a given size. vertex colors are random
 pub fn createQuadMesh(al: *Allocator, size_x: u32, size_y: u32,
                       center_x: f32, center_y: f32, texture: Texture) Mesh
 {
@@ -939,8 +922,6 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, proj_matrix: [4][4]f32,
         }
         
         // Cliping on the side
-        // HACK(Samuel): Clip on 2 to avoid not perfect color interpolation
-        // I will fix that later
         const planes = [_]Plane {
             Plane.c(-1, 0, 0, 1),
             Plane.c(1, 0, 0, 1),
@@ -949,6 +930,7 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, proj_matrix: [4][4]f32,
         };
         
         // NOTE(Samuel): Cliping on the side
+        // HACK(Samuel): On the side I'm only cliping triangles that are completly outside of the screen
         for (planes) |plane| {
             var tl_index: u32 = 0;
             const len = triangle_l_len;
@@ -964,7 +946,6 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, proj_matrix: [4][4]f32,
                     //triangle_l[tl_index] = cliping_result.triangle0;
                 } else if (cliping_result.count == 2) {
                     //triangle_l[tl_index] = cliping_result.triangle0;
-                    
                     //triangle_l[triangle_l_len] = cliping_result.triangle1;
                     //triangle_l_len += 1;
                 }

@@ -5,7 +5,6 @@ const assert = std.debug.assert;
 const fs = std.fs;
 const math = std.math;
 
-usingnamespace @import("util.zig");
 usingnamespace @import("vector_math.zig");
 const draw = @import("pixel_draw.zig");
 const Texture = draw.Texture;
@@ -131,7 +130,7 @@ fn update(delta: f32) void {
         cube_mesh.v[i].pos.z = new_z;
     }
     
-    draw.drawMesh(quad_mesh, .Texture, matrix, cam);
+    //draw.drawMesh(quad_mesh, .Texture, matrix, cam);
     //draw.drawMesh(quad_mesh, .Lines, matrix, cam);
     
     draw.drawMesh(cube_mesh, .Texture, matrix, cam);
