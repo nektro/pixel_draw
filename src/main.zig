@@ -36,7 +36,7 @@ fn start() void {
     potato = draw.textureFromTgaData(main_allocator, @embedFile("../assets/potato.tga")) catch unreachable;
     
     cube_mesh.texture = potato;
-    quad_mesh = draw.createQuadMesh(main_allocator, 20, 20, 10, 10, potato, .Tile);
+    quad_mesh = draw.createQuadMesh(main_allocator, 21, 21, 10.5, 10.5, potato, .Tile);
     
     for (quad_mesh.v) |*v| {
         v.pos = rotateVectorOnX(v.pos, 3.1415926535 * 0.5);
