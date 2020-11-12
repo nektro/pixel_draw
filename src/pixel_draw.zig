@@ -67,6 +67,10 @@ pub inline fn keyPressed(key: Keys) bool {
     return keys_pressed[@enumToInt(key)];
 }
 
+pub inline fn keyStrengh(key: Keys) f32 {
+    return @intToFloat(f32, @boolToInt(keyPressed(key)));
+}
+
 pub const init = plataformInit;
 
 const BmpHeader = packed struct {
@@ -669,10 +673,15 @@ inline fn randomFloat(comptime T: type) T {
     return prng.random.float(T);
 }
 
+pub const TextureMode = enum {
+    Strech,
+    Tile,
+};
 
 /// Creates a mesh made with quads with a given size. vertex colors are random
 pub fn createQuadMesh(al: *Allocator, size_x: u32, size_y: u32,
-                      center_x: f32, center_y: f32, texture: Texture) Mesh
+                      center_x: f32, center_y: f32, texture: Texture,
+                      texture_mode: TextureMode) Mesh
 {
     var result = Mesh{
         .v = al.alloc(Vertex, (size_x + 1) * (size_y + 1)) catch unreachable,
@@ -686,13 +695,24 @@ pub fn createQuadMesh(al: *Allocator, size_x: u32, size_y: u32,
         v.pos.y = @intToFloat(f32, i / (size_x + 1)) - center_y;
         v.pos.z = 0.0;
         
-        v.uv.x = (v.pos.x + center_x) / @intToFloat(f32, size_x);
-        v.uv.y = (v.pos.y + center_y) / @intToFloat(f32, size_y);
-        
         v.color.a = 1.0;
         v.color.r = randomFloat(f32);
         v.color.g = randomFloat(f32);
         v.color.b = randomFloat(f32);
+    }
+    
+    if (texture_mode == .Strech) {
+        for (result.v) |*v, i| {
+            v.uv.x = (v.pos.x + center_x) / @intToFloat(f32, size_x);
+            v.uv.y = (v.pos.y + center_y) / @intToFloat(f32, size_y);
+        }
+    } else if (texture_mode == .Tile) {
+        for (result.v) |*v, i| {
+            const x_i = @intCast(u32, i % (size_x + 1));
+            const y_i = @intCast(u32, i / (size_x + 1));
+            v.uv.x = @intToFloat(f32, x_i % 2);
+            v.uv.y = @intToFloat(f32, y_i % 2);
+        }
     }
     
     // Set indexes
@@ -741,6 +761,10 @@ const RasterMode = enum {
 
 pub const Camera3D = struct {
     pos: Vec3 = .{},
+    rotation: Vec3 = .{}, // Euler angles
+    fov: f32 = 70,
+    near: f32 = 0.1,
+    far: f32 = 100.0
 };
 
 pub const ClipTriangleReturn = struct {
@@ -808,6 +832,15 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
         const color1 = Color_lerp(triangle[in_i1].color, triangle[out_i].color, t1);
         const color2 = Color_lerp(triangle[in_i2].color, triangle[out_i].color, t2);
         
+        var uv1 = Vec2{};
+        var uv2 = Vec2{};
+        
+        uv1.x = lerp(triangle[in_i1].uv.x, triangle[out_i].uv.x, t1);
+        uv1.y = lerp(triangle[in_i1].uv.y, triangle[out_i].uv.y, t1);
+        
+        uv2.x = lerp(triangle[in_i2].uv.x, triangle[out_i].uv.x, t2);
+        uv2.y = lerp(triangle[in_i2].uv.y, triangle[out_i].uv.y, t2);
+        
         result.triangle0[out_i].color = color1;
         result.triangle1[in_i1].color = color1;
         result.triangle1[out_i].color = color2;
@@ -815,6 +848,10 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
         result.triangle0[out_i].pos = pos1;
         result.triangle1[in_i1].pos = pos1;
         result.triangle1[out_i].pos = pos2;
+        
+        result.triangle0[out_i].uv = uv1;
+        result.triangle1[in_i1].uv = uv1;
+        result.triangle1[out_i].uv = uv2;
         
         result.count = 2;
     } else if (out_count == 2) {
@@ -835,10 +872,24 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
         const color1 = Color_lerp(triangle[out_i1].color, triangle[in_i].color, t1);
         const color2 = Color_lerp(triangle[out_i2].color, triangle[in_i].color, t2);
         
+        
+        var uv1 = Vec2{};
+        var uv2 = Vec2{};
+        
+        uv1.x = lerp(triangle[out_i1].uv.x, triangle[in_i].uv.x, t1);
+        uv1.y = lerp(triangle[out_i1].uv.y, triangle[in_i].uv.y, t1);
+        
+        uv2.x = lerp(triangle[out_i2].uv.x, triangle[in_i].uv.x, t2);
+        uv2.y = lerp(triangle[out_i2].uv.y, triangle[in_i].uv.y, t2);
+        
         result.triangle0[out_i1].color = color1;
         result.triangle0[out_i2].color = color2;
+        
         result.triangle0[out_i1].pos = pos1;
         result.triangle0[out_i2].pos = pos2;
+        
+        result.triangle0[out_i1].uv = uv1;
+        result.triangle0[out_i2].uv = uv2;
     } else if (out_count == 3) {
         result.count = 0;
     }
@@ -846,9 +897,12 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
     return result;
 }
 
-pub fn drawMesh(mesh: Mesh, mode: RasterMode, proj_matrix: [4][4]f32,
-                cam: Camera3D) void
-{
+pub fn drawMesh(mesh: Mesh, mode: RasterMode, cam: Camera3D) void {
+    const hw_ratio = @intToFloat(f32, win_height) /
+        @intToFloat(f32, win_width);
+    
+    const proj_matrix = perspectiveMatrix(cam.near, cam.far, cam.fov, hw_ratio);
+    
     var index: u32 = 0;
     main_loop: while (index < mesh.i.len - 2) : (index += 3) {
         const ia = mesh.i[index];
@@ -871,7 +925,7 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, proj_matrix: [4][4]f32,
         // Lighting
         var face_lighting: f32 = 0.0;
         {
-            var ld = Vec3_normalize(Vec3.c(0.0, 1.0, 1.0));
+            var ld = Vec3_normalize(Vec3.c(0.5, 1.0, 1.0));
             
             face_lighting = Vec3_dot(ld, n);
             if (face_lighting < 0.1) face_lighting = 0.1;
@@ -881,11 +935,15 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, proj_matrix: [4][4]f32,
         var triangle_l_len: u32 = 1;
         triangle_l[0] = triangle;
         
-        // Camera Translate
+        // Camera Trasform
         {
             var i: u32 = 0;
             while (i < 3) : (i += 1) {
                 triangle_l[0][i].pos = Vec3_sub(triangle[i].pos, cam.pos);
+                
+                triangle_l[0][i].pos = rotateVectorOnY(triangle_l[0][i].pos, cam.rotation.y);
+                
+                triangle_l[0][i].pos = rotateVectorOnX(triangle_l[0][i].pos, cam.rotation.x);
             }
         }
         

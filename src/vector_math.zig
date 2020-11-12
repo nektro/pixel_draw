@@ -177,7 +177,8 @@ pub fn Vec3_len(v: Vec3) f32 {
 }
 
 pub fn Vec3_normalize(v: Vec3) Vec3 {
-    const result = Vec3_div_F(v, Vec3_len(v));
+    const l = Vec3_len(v);
+    const result = if (l > 0.001) Vec3_div_F(v, Vec3_len(v)) else Vec3{};
     return result;
 }
 
@@ -273,6 +274,52 @@ pub fn baricentricCoordinates(a: anytype, b: anytype,
     return Vec3.c(w0, w1, w2);
 }
 
+pub fn rotateVectorOnY(v: Vec3, angle: f32) Vec3 {
+    const result = Vec3 {
+        .x = v.x * @cos(angle) + v.z * @sin(angle),
+        .y = v.y,
+        .z = -v.x * @sin(angle) + v.z * @cos(angle),
+    };
+    return result;
+}
 
+pub fn rotateVectorOnX(v: Vec3, angle: f32) Vec3 {
+    const result = Vec3 {
+        .x = v.x,
+        .y = v.y * @cos(angle) + v.z * @sin(angle),
+        .z = -v.y * @sin(angle) + v.z * @cos(angle),
+    };
+    return result;
+}
+
+pub fn rotateVectorOnZ(v: Vec3, angle: f32) Vec3 {
+    const result = Vec3 {
+        .x = v.x * @cos(angle) + v.y * @sin(angle),
+        .y = -v.x * @sin(angle) + v.y * @cos(angle),
+        .z = v.z,
+    };
+    return result;
+}
+
+pub fn perspectiveMatrix(near: f32, far: f32, fov: f32, height_to_width_ratio: f32) [4][4]f32
+{
+    const S: f32 = 1 / (std.math.tan(fov * 3.1415926535 / 90.0));
+    var matrix = [4][4]f32{
+        .{-S * height_to_width_ratio,  0,  0,  0},
+        .{0,  -S,  0,  0},
+        .{0,  0, -(far / (far - near)),  -(far * near / (far - near))},
+        .{0,  0, -1, 0},
+    };
+    return matrix;
+}
+
+pub fn eulerAnglesToDirVector(v: Vec3) Vec3 {
+    var result = Vec3{
+        .x = -@sin(v.y),
+        .y = -@sin(v.x) * @cos(v.y),
+        .z = @cos(v.x) * @cos(v.y),
+    };
+    return result;
+}
 
 
