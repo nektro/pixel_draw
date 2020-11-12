@@ -617,6 +617,9 @@ pub fn rasterTriangle(triangle: [3]Vertex, texture: Texture, face_lighting: f32)
     const y_up    = math.max(math.min(math.min(ya, yb),yc), 0);
     const y_down  = math.min(math.max(math.max(ya, yb),yc), @intCast(i32, win_height - 1));
     
+    const w0_a = (yc - yb);
+    const w1_a = (ya - yc);
+    
     var y: i32 = y_up;
     while (y <= y_down) : (y += 1) {
         const area = @intToFloat(f32, edgeFunctionI(xa, ya, xb, yb, xc, yc));
@@ -624,10 +627,18 @@ pub fn rasterTriangle(triangle: [3]Vertex, texture: Texture, face_lighting: f32)
         var x: i32 = x_left;
         const db_iy = y * @intCast(i32, win_width);
         
+        const w0_b = (y - yb) * (xc - xb);
+        const w1_b = (y - yc) * (xa - xc);
+        
         while (x <= x_right) : (x += 1) {
-            var w0 = @intToFloat(f32, edgeFunctionI(xb, yb, xc, yc, x, y)) / area;
-            var w1 = @intToFloat(f32, edgeFunctionI(xc, yc, xa, ya, x, y)) / area;
+            const w0i = (x - xb) * w0_a - w0_b;
+            const w1i = (x - xc) * w1_a - w1_b;
+            
+            var w0 = @intToFloat(f32, w0i) / area;
+            var w1 = @intToFloat(f32, w1i) / area;
             var w2 = 1.0 - w0 - w1;
+            
+            
             if (w0 >= 0 and w1 >= 0 and w2 >= 0) {
                 // NOTE(Samuel): Correct for perpective
                 
