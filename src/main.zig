@@ -58,7 +58,7 @@ fn start() void {
     }
     
     for (sky.v) |*v| {
-        v.pos = Vec3_mul_F(v.pos, 100);
+        v.pos = Vec3_mul_F(v.pos, 500);
     }
     
     clock.texture = palheta;
