@@ -3,6 +3,8 @@ const math = std.math;
 const assert = std.debug.assert;
 const print = std.debug.print;
 const Allocator = std.mem.Allocator;
+const util = @import("util.zig");
+usingnamespace util;
 
 usingnamespace if (@import("builtin").os.tag == .windows)
 @import("win32_plataform.zig")
@@ -798,8 +800,8 @@ pub fn rasterTriangle(triangle: [3]Vertex, texture: Texture, face_lighting: f32)
                 
                 if (!(w0_cmp_4x[i] or w1_cmp_4x[i] or w2_cmp_4x[i])) {
                     const z = z_4x[i];
-                    depth_slice[i] = z;
                     if (!z_mask_4x[i]) {
+                        depth_slice[i] = z;
                         
                         var color = Color{};
                         
@@ -837,12 +839,6 @@ pub const Mesh = struct {
     i: []u32,
     texture: Texture,
 };
-
-/// Return a random float from 0 to 1
-var prng = std.rand.DefaultPrng.init(0);
-inline fn randomFloat(comptime T: type) T {
-    return prng.random.float(T);
-}
 
 pub const TextureMode = enum {
     Strech,
@@ -923,10 +919,134 @@ pub fn createQuadMesh(al: *Allocator, size_x: u32, size_y: u32,
     return result;
 }
 
+
+pub fn meshFromObjData(al: *Allocator, obj_data: []const u8) Mesh {
+    
+    // find mesh size;
+    
+    var v_count: u32 = 0;
+    var i_count: u32 = 0;
+    var t_count: u32 = 0;
+    
+    var data = obj_data;
+    while (true) {
+        var line = nextLineSlice(&data);
+        if (line.len == 0) break;
+        
+        removeTrailingSpaces(&line);
+        removeLeadingSpaces(&line);
+        
+        
+        var tok = getToken(&line, ' ');
+        
+        
+        if (tok.len == 1) {
+            if (tok[0] == 'f') {
+                i_count += 3;
+            } else if (tok[0] == 'v') {
+                v_count += 1;
+            }
+        } else if (tok.len == 2) {
+            if (tok[0] == 'v' and tok[1] == 't') {
+                t_count += 1;
+            }
+        }
+        
+    } 
+    
+    std.debug.print("The mesh has {} vetices and {} indexes and {} t\n", .{v_count, i_count, 
+                        t_count});
+    
+    var vert = al.alloc(Vec3, v_count) catch unreachable;
+    var uv = al.alloc(Vec2, t_count) catch unreachable;
+    var vert_i = al.alloc(u32, i_count) catch unreachable;
+    var uv_i = al.alloc(u32, i_count) catch unreachable;
+    
+    defer al.free(vert);
+    defer al.free(uv);
+    defer al.free(vert_i);
+    defer al.free(uv_i);
+    
+    var vert_index: u32 = 0;
+    var uv_index: u32 = 0;
+    var vert_i_index: u32 = 0;
+    var uv_i_index: u32 = 0;
+    
+    data = obj_data;
+    while (true) {
+        var line = nextLineSlice(&data);
+        if (line.len == 0) break;
+        
+        removeTrailingSpaces(&line);
+        removeLeadingSpaces(&line);
+        
+        const tok = getToken(&line, ' ');
+        if (tok.len == 1) {
+            if (tok[0] == 'f') {
+                var _i: u32 = 0;
+                while (_i < 3): (_i += 1){
+                    var f = getToken(&line, ' ');
+                    var vi = getToken(&f, '/');
+                    var vt = getToken(&f, '/');
+                    
+                    vert_i[vert_i_index] = std.fmt.parseInt(u32, vi, 10) catch unreachable;
+                    uv_i[uv_i_index] = std.fmt.parseInt(u32, vt, 10) catch unreachable;
+                    
+                    vert_i_index += 1;
+                    uv_i_index += 1;
+                }
+            } else if (tok[0] == 'v'){
+                var x = getToken(&line, ' ');
+                var y = getToken(&line, ' ');
+                var z = line;
+                
+                vert[vert_index].x = std.fmt.parseFloat(f32, x) catch unreachable;
+                vert[vert_index].y = std.fmt.parseFloat(f32, y) catch unreachable;
+                vert[vert_index].z = std.fmt.parseFloat(f32, z) catch unreachable;
+                vert_index += 1;
+            }
+        } else if (tok.len == 2) {
+            if (tok[0] == 'v' and tok[1] == 't') {
+                var x = getToken(&line, ' ');
+                var y = line;
+                
+                uv[uv_index].x = std.fmt.parseFloat(f32, x) catch unreachable;
+                uv[uv_index].y = std.fmt.parseFloat(f32, y) catch unreachable;
+                uv_index += 1;
+            }
+        }
+        
+    } 
+    
+    var mesh_v_size = if (v_count > t_count) v_count else t_count;
+    
+    var result = Mesh{
+        .v = al.alloc(Vertex, mesh_v_size) catch unreachable,
+        .i = al.alloc(u32, i_count) catch unreachable,
+        .texture = undefined,
+    };
+    
+    for (result.i) |*i, _i| {
+        if (v_count >= t_count) {
+            i.* = vert_i[_i] - 1;
+        } else {
+            i.* = uv_i[_i] - 1;
+        }
+        
+        result.v[i.*] = Vertex {
+            .pos = vert[vert_i[_i] - 1],
+            .uv = uv[uv_i[_i] - 1],
+        };
+    }
+    
+    
+    return result;
+}
+
 const RasterMode = enum {
     Points,
     Lines,
-    Faces,
+    NoShadow,
     Texture,
 };
 
@@ -1118,17 +1238,17 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, cam: Camera3D) void {
         }
         
         { // clip near
-            const cliping_result = clipTriangle(triangle_l[0], Plane.c(0, 0, -1, -0.1));
+            const cliping_result = clipTriangle(triangle_l[0], Plane.c(0, 0, -1, -cam.near));
             if (cliping_result.count == 0) continue : main_loop;
             triangle_l[0] = cliping_result.triangle0;
             if (cliping_result.count == 2) {
-                triangle_l[1] = cliping_result.triangle1;
                 triangle_l_len += 1;
+                triangle_l[1] = cliping_result.triangle1;
             }
         }
         
         { // clip far
-            const cliping_result = clipTriangle(triangle_l[0], Plane.c(0, 0, 1, 100.0));
+            const cliping_result = clipTriangle(triangle_l[0], Plane.c(0, 0, 1, cam.far));
             if (cliping_result.count == 0) continue : main_loop;
             triangle_l[0] = cliping_result.triangle0;
         }
@@ -1203,7 +1323,9 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, cam: Camera3D) void {
                         drawTriangle(pa_x, pa_y, pb_x, pb_y, pc_x, pc_y, line_color, 1);
                     }
                 },
-                .Faces => { },
+                .NoShadow=> {
+                    rasterTriangle(triangle, mesh.texture, 1.0);
+                },
                 .Texture => {
                     rasterTriangle(triangle, mesh.texture, face_lighting);
                 },
