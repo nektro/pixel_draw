@@ -604,7 +604,7 @@ pub inline fn screenToPixel(sc: f32, screen_size: u32) i32 {
 }
 
 /// Raster a triangle
-pub fn rasterTriangle(triangle: [3]Vertex, texture: Texture, face_lighting: f32) void {
+pub fn rasterTriangleOld(triangle: [3]Vertex, texture: Texture, face_lighting: f32) void {
     const xa = screenToPixel(triangle[0].pos.x, win_width);
     const xb = screenToPixel(triangle[1].pos.x, win_width);
     const xc = screenToPixel(triangle[2].pos.x, win_width);
@@ -666,6 +666,165 @@ pub fn rasterTriangle(triangle: [3]Vertex, texture: Texture, face_lighting: f32)
                     color.b *= face_lighting;
                     putPixel(x, y, color);
                 }
+            }
+        }
+    }
+}
+
+/// Raster a triangle
+pub fn rasterTriangle(triangle: [3]Vertex, texture: Texture, face_lighting: f32) void {
+    @setFloatMode(.Optimized);
+    
+    const face_lighting_i = @floatToInt(u16, face_lighting * 255);
+    
+    const xa = screenToPixel(triangle[0].pos.x, win_width);
+    const xb = screenToPixel(triangle[1].pos.x, win_width);
+    const xc = screenToPixel(triangle[2].pos.x, win_width);
+    
+    const ya = screenToPixel(-triangle[0].pos.y, win_height);
+    const yb = screenToPixel(-triangle[1].pos.y, win_height);
+    const yc = screenToPixel(-triangle[2].pos.y, win_height);
+    
+    const x_left  = math.max(math.min(math.min(xa, xb), xc), 0);
+    const x_right = math.min(math.max(math.max(xa, xb), xc), @intCast(i32, win_width - 1));
+    const y_up    = math.max(math.min(math.min(ya, yb),yc), 0);
+    const y_down  = math.min(math.max(math.max(ya, yb),yc), @intCast(i32, win_height - 1));
+    
+    const w0_a = @intToFloat(f32, yc - yb);
+    const w1_a = @intToFloat(f32, ya - yc);
+    const area = @intToFloat(f32, edgeFunctionI(xa, ya, xb, yb, xc, yc));
+    
+    if (area < 0.0001 and area > -0.0001) return;
+    
+    const w0_a_4x = @splat(4, w0_a);
+    const w1_a_4x = @splat(4, w1_a);
+    const area_4x = @splat(4, area);
+    const one_4x = @splat(4, @as(f32, 1.0));
+    const zero_4x = @splat(4, @as(f32, 0.0));
+    const inc_4x: std.meta.Vector(4, f32) = .{0.0, 1.0, 2.0, 3.0};
+    const false_4x: std.meta.Vector(4, bool) = .{false, false, false, false};
+    
+    const xb_4x = @splat(4, @intToFloat(f32, xb));
+    const xc_4x = @splat(4, @intToFloat(f32, xc));
+    
+    const tri0_w_4x = @splat(4, triangle[0].w);
+    const tri1_w_4x = @splat(4, triangle[1].w);
+    const tri2_w_4x = @splat(4, triangle[2].w);
+    
+    const tri0_u_4x = @splat(4, triangle[0].uv.x);
+    const tri1_u_4x = @splat(4, triangle[1].uv.x);
+    const tri2_u_4x = @splat(4, triangle[2].uv.x);
+    
+    const tri0_v_4x = @splat(4, triangle[0].uv.y);
+    const tri1_v_4x = @splat(4, triangle[1].uv.y);
+    const tri2_v_4x = @splat(4, triangle[2].uv.y);
+    
+    const tex_width_4x = @splat(4, @intToFloat(f32, texture.width));
+    const tex_height_4x = @splat(4, @intToFloat(f32, texture.height));
+    
+    var y: i32 = y_up;
+    while (y <= y_down) : (y += 1) {
+        
+        var x: i32 = x_left;
+        const db_iy = y * @intCast(i32, win_width);
+        
+        const w0_b = @intToFloat(f32, (y - yb) * (xc - xb));
+        
+        
+        const w1_b = @intToFloat(f32, (y - yc) * (xa - xc));
+        
+        const w0_b_4x = @splat(4, w0_b);
+        const w1_b_4x = @splat(4, w1_b);
+        
+        while (x <= x_right) {
+            const x_4x = @splat(4, @intToFloat(f32, x)) + inc_4x;
+            var w0_4x = ((x_4x - xb_4x) * w0_a_4x - w0_b_4x) / area_4x;
+            var w1_4x = ((x_4x - xc_4x) * w1_a_4x - w1_b_4x) / area_4x;
+            var w2_4x = one_4x - w1_4x - w0_4x;
+            
+            const w0_cmp_4x = w0_4x < zero_4x; 
+            const w1_cmp_4x = w1_4x < zero_4x; 
+            const w2_cmp_4x = w2_4x < zero_4x;
+            
+            if (@reduce(.And, w0_cmp_4x)) {
+                x += 4;
+                continue;
+            }
+            if (@reduce(.And, w1_cmp_4x)) {
+                x += 4;
+                continue;
+            }
+            if (@reduce(.And, w2_cmp_4x)) {
+                x += 4;
+                continue;
+            }
+            
+            w0_4x /= tri0_w_4x;
+            w1_4x /= tri1_w_4x;
+            w2_4x /= tri2_w_4x;
+            const w_sum = w0_4x + w1_4x + w2_4x;
+            w0_4x /= w_sum;
+            w1_4x /= w_sum;
+            w2_4x /= w_sum;
+            
+            var db_i = @intCast(u32, x + db_iy);
+            db_i = math.min(db_i, win_width * win_height - 4);
+            
+            var depth_slice = depth_buffer[db_i..][0..4];
+            const depth_4x: std.meta.Vector(4, f32) = depth_slice.*;
+            
+            const z_4x = tri0_w_4x * w0_4x + tri1_w_4x * w1_4x + tri2_w_4x * w2_4x;
+            const z_mask_4x = depth_4x < z_4x;
+            
+            if (@reduce(.And, z_mask_4x)) {
+                x += 4;
+                continue;
+            }
+            
+            //for (depth_slice) |*it, i| it.* = z_4x[i];
+            
+            var u_4x = tri0_u_4x * w0_4x + tri1_u_4x * w1_4x + tri2_u_4x * w2_4x;
+            var v_4x = tri0_v_4x * w0_4x + tri1_v_4x * w1_4x + tri2_v_4x * w2_4x;
+            
+            u_4x *= tex_width_4x;
+            v_4x *= tex_height_4x;
+            
+            var i: u32 = 0;
+            while (i < 4 and x < win_width) : (i += 1) {
+                
+                var w0 = w0_4x[i];
+                var w1 = w1_4x[i];
+                var w2 = w2_4x[i];
+                
+                if (!(w0_cmp_4x[i] or w1_cmp_4x[i] or w2_cmp_4x[i])) {
+                    const z = z_4x[i];
+                    depth_slice[i] = z;
+                    if (!z_mask_4x[i]) {
+                        
+                        var color = Color{};
+                        
+                        const tex_u = @floatToInt(u32, u_4x[i]) % texture.width;
+                        const tex_v = @floatToInt(u32, v_4x[i]) % texture.height;
+                        
+                        const tex_pos = (tex_u + tex_v * texture.height) * 4;
+                        var tpixel = texture.raw[tex_pos..][0..4].*;
+                        
+                        tpixel[0] = @intCast(u8, tpixel[0] * face_lighting_i / 255);
+                        tpixel[1] = @intCast(u8, tpixel[1] * face_lighting_i / 255);
+                        tpixel[2] = @intCast(u8, tpixel[2] * face_lighting_i / 255);
+                        
+                        const pixel_pos = @intCast(u32, x + y * @intCast(i32, win_width)) * 4;
+                        const pixel = screen_buffer[pixel_pos..][0..4];
+                        
+                        if (tpixel[3] > 0) {
+                            pixel[0] = tpixel[0];
+                            pixel[1] = tpixel[1];
+                            pixel[2] = tpixel[2];
+                        }
+                    }
+                }
+                
+                x += 1;
             }
         }
     }
@@ -912,7 +1071,6 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
 pub fn drawMesh(mesh: Mesh, mode: RasterMode, cam: Camera3D) void {
     const hw_ratio = @intToFloat(f32, win_height) /
         @intToFloat(f32, win_width);
-    
     const proj_matrix = perspectiveMatrix(cam.near, cam.far, cam.fov, hw_ratio);
     
     var index: u32 = 0;

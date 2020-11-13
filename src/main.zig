@@ -42,13 +42,16 @@ fn start() void {
     
     for (quad_mesh.v) |*v| {
         v.pos = rotateVectorOnX(v.pos, 3.1415926535 * 0.5);
-        v.pos.y -= 0.5;
+        v.pos.y -= 0.3;
     }
 }
 
 fn end() void {
     main_allocator.free(font.texture.raw);
     main_allocator.free(potato.raw);
+    main_allocator.free(bad_floor.raw);
+    main_allocator.free(quad_mesh.v);
+    main_allocator.free(quad_mesh.i);
 }
 
 var print_buff: [512]u8 = undefined;
