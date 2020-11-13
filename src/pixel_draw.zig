@@ -866,10 +866,10 @@ pub fn createQuadMesh(al: *Allocator, size_x: u32, size_y: u32,
         v.pos.y = @intToFloat(f32, i / (size_x + 1)) - center_y;
         v.pos.z = 0.0;
         
-        v.color.a = 1.0;
-        v.color.r = randomFloat(f32);
-        v.color.g = randomFloat(f32);
-        v.color.b = randomFloat(f32);
+        //v.color.a = 1.0;
+        //v.color.r = randomFloat(f32);
+        //v.color.g = randomFloat(f32);
+        //v.color.b = randomFloat(f32);
     }
     
     if (texture_mode == .Strech) {
@@ -1000,8 +1000,8 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
         
         const pos1 = lineIntersectPlaneT(triangle[in_i1].pos, triangle[out_i].pos, plane, &t1);
         const pos2 = lineIntersectPlaneT(triangle[in_i2].pos, triangle[out_i].pos, plane, &t2);
-        const color1 = Color_lerp(triangle[in_i1].color, triangle[out_i].color, t1);
-        const color2 = Color_lerp(triangle[in_i2].color, triangle[out_i].color, t2);
+        //const color1 = Color_lerp(triangle[in_i1].color, triangle[out_i].color, t1);
+        //const color2 = Color_lerp(triangle[in_i2].color, triangle[out_i].color, t2);
         
         var uv1 = Vec2{};
         var uv2 = Vec2{};
@@ -1012,9 +1012,9 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
         uv2.x = lerp(triangle[in_i2].uv.x, triangle[out_i].uv.x, t2);
         uv2.y = lerp(triangle[in_i2].uv.y, triangle[out_i].uv.y, t2);
         
-        result.triangle0[out_i].color = color1;
-        result.triangle1[in_i1].color = color1;
-        result.triangle1[out_i].color = color2;
+        //result.triangle0[out_i].color = color1;
+        //result.triangle1[in_i1].color = color1;
+        //result.triangle1[out_i].color = color2;
         
         result.triangle0[out_i].pos = pos1;
         result.triangle1[in_i1].pos = pos1;
@@ -1040,8 +1040,8 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
         var t2: f32 = 0.0;
         const pos1 = lineIntersectPlaneT(triangle[out_i1].pos, triangle[in_i].pos, plane, &t1);
         const pos2 = lineIntersectPlaneT(triangle[out_i2].pos, triangle[in_i].pos, plane, &t2);
-        const color1 = Color_lerp(triangle[out_i1].color, triangle[in_i].color, t1);
-        const color2 = Color_lerp(triangle[out_i2].color, triangle[in_i].color, t2);
+        //const color1 = Color_lerp(triangle[out_i1].color, triangle[in_i].color, t1);
+        //const color2 = Color_lerp(triangle[out_i2].color, triangle[in_i].color, t2);
         
         
         var uv1 = Vec2{};
@@ -1053,8 +1053,8 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
         uv2.x = lerp(triangle[out_i2].uv.x, triangle[in_i].uv.x, t2);
         uv2.y = lerp(triangle[out_i2].uv.y, triangle[in_i].uv.y, t2);
         
-        result.triangle0[out_i1].color = color1;
-        result.triangle0[out_i2].color = color2;
+        //result.triangle0[out_i1].color = color1;
+        //result.triangle0[out_i2].color = color2;
         
         result.triangle0[out_i1].pos = pos1;
         result.triangle0[out_i2].pos = pos2;
@@ -1170,12 +1170,6 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, cam: Camera3D) void {
                         it.* = triangle_l[tl_index + i + 1];
                     }
                     triangle_l_len -= 1;
-                } else if (cliping_result.count == 1) {
-                    //triangle_l[tl_index] = cliping_result.triangle0;
-                } else if (cliping_result.count == 2) {
-                    //triangle_l[tl_index] = cliping_result.triangle0;
-                    //triangle_l[triangle_l_len] = cliping_result.triangle1;
-                    //triangle_l_len += 1;
                 }
             }
         }
@@ -1201,9 +1195,9 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, cam: Camera3D) void {
                     const pc_y = @floatToInt(i32, (-triangle[2].pos.y + 1) / (2 * pixel_size_y));
                     
                     if (mode == .Points) {
-                        fillCircle(pa_x, pa_y, 5, triangle[0].color);
-                        fillCircle(pb_x, pb_y, 5, triangle[1].color);
-                        fillCircle(pc_x, pc_y, 5, triangle[2].color);
+                        fillCircle(pa_x, pa_y, 5, Color.c(1, 1, 1, 1));
+                        fillCircle(pb_x, pb_y, 5, Color.c(1, 1, 1, 1));
+                        fillCircle(pc_x, pc_y, 5, Color.c(1, 1, 1, 1));
                     } else if (mode == .Lines) {
                         const line_color = Color.c(1, 1, 1, 1);
                         drawTriangle(pa_x, pa_y, pb_x, pb_y, pc_x, pc_y, line_color, 1);

@@ -21,7 +21,7 @@ pub fn main() anyerror!void {
     
     main_allocator = &gpa.allocator;
     
-    try draw.init(&gpa.allocator, 800, 600, start, update);
+    try draw.init(&gpa.allocator, 1280, 720, start, update);
     end();
 }
 
@@ -58,15 +58,15 @@ var print_buff: [512]u8 = undefined;
 
 
 var cube_v = [_]Vertex {
-    Vertex.c(Vec3.c(-0.5,  0.5,  0.5), Color.c(0, 0, 0, 1), Vec2.c(0, 1)),
-    Vertex.c(Vec3.c( 0.5,  0.5,  0.5), Color.c(0, 0, 1, 1), Vec2.c(1, 1)),
-    Vertex.c(Vec3.c(-0.5, -0.5,  0.5), Color.c(0, 1, 0, 1), Vec2.c(0, 0)),
-    Vertex.c(Vec3.c( 0.5, -0.5,  0.5), Color.c(0, 1, 1, 1), Vec2.c(1, 0)),
+    Vertex.c(Vec3.c(-0.5,  0.5,  0.5), Vec2.c(0, 1)),
+    Vertex.c(Vec3.c( 0.5,  0.5,  0.5), Vec2.c(1, 1)),
+    Vertex.c(Vec3.c(-0.5, -0.5,  0.5), Vec2.c(0, 0)),
+    Vertex.c(Vec3.c( 0.5, -0.5,  0.5), Vec2.c(1, 0)),
     
-    Vertex.c(Vec3.c(-0.5,  0.5, -0.5), Color.c(1, 0, 0, 1), Vec2.c(1, 1)),
-    Vertex.c(Vec3.c( 0.5,  0.5, -0.5), Color.c(1, 0, 1, 1), Vec2.c(0, 1)),
-    Vertex.c(Vec3.c(-0.5, -0.5, -0.5), Color.c(1, 1, 0, 1), Vec2.c(1, 0)),
-    Vertex.c(Vec3.c( 0.5, -0.5, -0.5), Color.c(1, 1, 1, 1), Vec2.c(0, 0)),
+    Vertex.c(Vec3.c(-0.5,  0.5, -0.5), Vec2.c(1, 1)),
+    Vertex.c(Vec3.c( 0.5,  0.5, -0.5), Vec2.c(0, 1)),
+    Vertex.c(Vec3.c(-0.5, -0.5, -0.5), Vec2.c(1, 0)),
+    Vertex.c(Vec3.c( 0.5, -0.5, -0.5), Vec2.c(0, 0)),
 };
 
 var cube_i = [_]u32{

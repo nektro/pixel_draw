@@ -62,12 +62,14 @@ pub const Plane = struct {
 
 pub const Vertex = struct {
     pos: Vec3 = .{},
-    color: Color = .{},
     uv: Vec2 = .{},
     w: f32 = 1.0,
     
-    pub inline fn c(pos: Vec3, color: Color, uv: Vec2) Vertex {
-        return Vertex{.pos = pos, .color = color, .uv = uv};
+    pub inline fn c(pos: Vec3, uv: Vec2) Vertex {
+        return Vertex{
+            .pos = pos,
+            .uv = uv,
+        };
     }
 };
 
