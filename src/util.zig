@@ -35,7 +35,7 @@ pub fn writeIntToFileOnPos(file: std.fs.File, n: anytype, pos: u64) !void {
 pub fn swap(a: anytype, b: anytype) void {
     comptime if (@TypeOf(a) != @TypeOf(b))
         @compileError("Trying to swap diferent types\n");
-    
+
     var tmp = a.*;
     a.* = b.*;
     b.* = tmp;
@@ -43,18 +43,18 @@ pub fn swap(a: anytype, b: anytype) void {
 
 // #TODO(samuel): Change to use only one sort function
 pub fn quickSort(
-                 comptime T: type,
-                 array: []T,
-                 lesst_func: fn (a: T, b: T) bool,
-                 greatt_func: fn (a: T, b: T) bool,
-                 ) void {
+    comptime T: type,
+    array: []T,
+    lesst_func: fn (a: T, b: T) bool,
+    greatt_func: fn (a: T, b: T) bool,
+) void {
     var i: isize = 0;
     var j: isize = @intCast(isize, array.len - 1);
     var pivo = array[array.len / 2];
     while (i <= j) {
         while (lesst_func(array[@intCast(usize, i)], pivo)) i += 1;
         while (greatt_func(array[@intCast(usize, j)], pivo)) j -= 1;
-        
+
         if (i <= j) {
             swap(&array[@intCast(usize, i)], &array[@intCast(usize, j)]);
             i += 1;
@@ -104,19 +104,19 @@ pub fn createFixedString(comptime size: usize, str: []const u8) FixedSizeString(
 /// return the current line and advances the buffer to the next
 pub fn nextLineSlice(slice: *[]const u8) []const u8 {
     if (slice.len == 0) return slice.*;
-    
+
     var i: usize = 0;
     while (i < slice.len and slice.*[i] != '\n') {
         i += 1;
     }
-    
+
     var result = slice.*[0..i];
-    
+
     if (i > 0 and slice.*[i - 1] == '\r') {
         result.len -= 1;
     }
     slice.* = slice.*[i + 1 ..];
-    
+
     return result;
 }
 
@@ -141,7 +141,7 @@ pub fn removeTrailingSpaces(slice: *[]const u8) void {
 /// Return the token and advances the buffer
 pub fn getToken(slice: *[]const u8, separator: u8) []const u8 {
     if (slice.len == 0) return slice.*;
-    
+
     var i: usize = 0;
     while (i < slice.len and slice.*[i] != separator) {
         i += 1;
@@ -149,7 +149,7 @@ pub fn getToken(slice: *[]const u8, separator: u8) []const u8 {
             return slice.*;
         }
     }
-    
+
     var result = slice.*[0..i];
     slice.* = slice.*[i + 1 ..];
     return result;
@@ -178,12 +178,12 @@ pub inline fn strCmp(a: []const u8, b: []const u8) bool {
 /// Compares two FixedSizeString of any size
 pub fn fixStrCmp(a: anytype, b: anytype) bool {
     if (a.len != b.len) return false;
-    
+
     var index: usize = 0;
     while (index > a.len) : (index += 1) {
         if (a.data[index] != b.data[index]) return false;
     }
-    
+
     return true;
 }
 

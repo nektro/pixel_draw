@@ -118,20 +118,17 @@ const VirtualKeys = struct {
     pub const SUBTRACT = 0x6D;
     pub const TAB = 0x09;
     pub const ZOOM = 0xFB;
-    
+
     //pub const DOWN = 0x25;
     //pub const LEFT = 0x26;
     //pub const UP = 0x27;
     //pub const RIGHT = 0x28;
-    
+
     pub const LEFT = 0x25;
     pub const UP = 0x26;
     pub const RIGHT = 0x27;
     pub const DOWN = 0x28;
-    
-    
 };
-
 
 const RECT = extern struct {
     left: c_long,
@@ -207,7 +204,7 @@ const keymap = [_]u32{
     VirtualKeys.KEY_8,
     VirtualKeys.KEY_9,
     VirtualKeys.KEY_0,
-    
+
     VirtualKeys.UP,
     VirtualKeys.DOWN,
     VirtualKeys.LEFT,
@@ -218,9 +215,7 @@ pub var keys_down = [_]bool{false} ** keymap.len;
 pub var keys_up = [_]bool{false} ** keymap.len;
 pub var keys_pressed = [_]bool{false} ** keymap.len;
 
-fn mainWindowCallback(window: win.HWND, message: c_uint,
-                      w_param: usize, l_param: ?*c_void)
-callconv(.Stdcall) ?*c_void {
+fn mainWindowCallback(window: win.HWND, message: c_uint, w_param: usize, l_param: ?*c_void) callconv(.Stdcall) ?*c_void {
     var result: ?*c_void = null;
     switch (message) {
         usr32.WM_SIZE => {
@@ -230,18 +225,18 @@ callconv(.Stdcall) ?*c_void {
             const height = @intCast(u32, client_rect.bottom - client_rect.top);
             win32ResizeDibSection(width, height);
         },
-        
+
         usr32.WM_DESTROY => {
             usr32.PostQuitMessage(0);
         },
-        
+
         usr32.WM_CLOSE => {
             usr32.PostQuitMessage(0);
         },
-        
+
         usr32.WM_KEYDOWN => {
             const key = @intCast(u32, w_param);
-            for(keys_down) |*it, i| {
+            for (keys_down) |*it, i| {
                 if (keymap[i] == key) {
                     it.* = true;
                     keys_pressed[i] = true;
@@ -250,19 +245,19 @@ callconv(.Stdcall) ?*c_void {
         },
         usr32.WM_KEYUP => {
             const key = @intCast(u32, w_param);
-            for(keys_up) |*it, i| {
+            for (keys_up) |*it, i| {
                 if (keymap[i] == key) {
                     it.* = true;
                     keys_pressed[i] = false;
                 }
             }
         },
-        
+
         else => {
             result = win.user32.DefWindowProcA(window, message, w_param, l_param);
         },
     }
-    
+
     return result;
 }
 
@@ -286,30 +281,21 @@ var bitmap_info = BITMAPINFO{
 fn win32ResizeDibSection(width: u32, height: u32) void {
     win_width = width;
     win_height = height;
-    
+
     bitmap_info.bmiHeader.biWidth = @intCast(i32, width);
     bitmap_info.bmiHeader.biHeight = @intCast(i32, height);
-    
+
     main_allocator.free(bitmap_memory);
     bitmap_memory = main_allocator.alloc(u32, width * height * 4) catch unreachable;
-    
+
     main_allocator.free(depth_buffer);
     depth_buffer = main_allocator.alloc(f32, win_width * win_height) catch unreachable;
-    
-    
+
     screen_buffer = @ptrCast(*[]u8, &bitmap_memory).*;
 }
 
 fn win32UpadateWindow(device_context: win.HDC) void {
-    _ = StretchDIBits(device_context, 0, 0,
-                      @intCast(c_int, win_width),
-                      @intCast(c_int, win_height),
-                      0, @intCast(c_int, win_height),
-                      @intCast(c_int, win_width),
-                      -@intCast(c_int, win_height),
-                      @ptrCast(*c_void, bitmap_memory.ptr),
-                      @ptrCast(*c_void, &bitmap_info),
-                      0, 0xcc0020);
+    _ = StretchDIBits(device_context, 0, 0, @intCast(c_int, win_width), @intCast(c_int, win_height), 0, @intCast(c_int, win_height), @intCast(c_int, win_width), -@intCast(c_int, win_height), @ptrCast(*c_void, bitmap_memory.ptr), @ptrCast(*c_void, &bitmap_info), 0, 0xcc0020);
 }
 // === Globals =======================================
 var bitmap_memory: []u32 = undefined;
@@ -320,14 +306,10 @@ pub var win_width: u32 = 800;
 pub var win_height: u32 = 600;
 // ===================================================
 
-pub fn plataformInit(al: *std.mem.Allocator,
-                     w_width: u32, w_height: u32,
-                     start_fn: fn () void,
-                     update_fn: fn (f32) void) !void {
-    
+pub fn plataformInit(al: *std.mem.Allocator, w_width: u32, w_height: u32, start_fn: fn () void, update_fn: fn (f32) void) !void {
     main_allocator = al;
     const instance = @ptrCast(win.HINSTANCE, win.kernel32.GetModuleHandleW(null).?);
-    
+
     var window_class = WNDCLASSEXA{
         .style = usr32.CS_OWNDC | usr32.CS_HREDRAW | usr32.CS_VREDRAW,
         .lpfnWndProc = mainWindowCallback,
@@ -341,43 +323,36 @@ pub fn plataformInit(al: *std.mem.Allocator,
         .lpszClassName = "PixelDrawWindowClass",
         .hIconSm = null,
     };
-    
+
     if (usr32.RegisterClassExA(&window_class) == 0) {
         std.debug.panic("Win error {}\n", .{win.kernel32.GetLastError()});
     }
-    
-    var window_handle_maybe_null = usr32.CreateWindowExA(0,
-                                                         window_class.lpszClassName,
-                                                         "PixelDraw",
-                                                         WS_OVERLAPEDWINDOW | WS_VISIBLE,
-                                                         0, 0,
-                                                         @intCast(i32, w_width),
-                                                         @intCast(i32, w_height),
-                                                         null, null, instance, null);
-    
+
+    var window_handle_maybe_null = usr32.CreateWindowExA(0, window_class.lpszClassName, "PixelDraw", WS_OVERLAPEDWINDOW | WS_VISIBLE, 0, 0, @intCast(i32, w_width), @intCast(i32, w_height), null, null, instance, null);
+
     win_width = w_width;
     win_height = w_height;
-    
+
     if (window_handle_maybe_null) |window_handle| {
         _ = usr32.ShowWindow(window_handle, 1);
-        
+
         win32ResizeDibSection(w_width, w_height);
         //depth_buffer = try main_allocator.alloc(f32, win_width * win_height);
-        
+
         start_fn();
-        
+
         var delta: f32 = 0.0;
         var initTime: i128 = 0;
-        
+
         var msg: usr32.MSG = undefined;
         var running = true;
         while (running) {
             initTime = std.time.nanoTimestamp() - initTime;
             delta = @floatCast(f32, @intToFloat(f64, initTime) / 1000000000);
             initTime = std.time.nanoTimestamp();
-            
+
             for (depth_buffer) |*it| it.* = std.math.inf_f32;
-            
+
             for (keys_up) |*it| it.* = false;
             for (keys_down) |*it| it.* = false;
             while (usr32.PeekMessageA(&msg, null, 0, 0, 0x0001)) { // 0x0001 = PM_REMOVE
@@ -387,7 +362,7 @@ pub fn plataformInit(al: *std.mem.Allocator,
                 _ = usr32.TranslateMessage(&msg);
                 _ = usr32.DispatchMessageA(&msg);
             }
-            
+
             const device_context = usr32.GetDC(window_handle).?;
             win32UpadateWindow(device_context);
             update_fn(delta);
@@ -395,6 +370,6 @@ pub fn plataformInit(al: *std.mem.Allocator,
     } else {
         std.debug.panic("Unable to create Window - error: {}\n", .{win.kernel32.GetLastError()});
     }
-    
+
     main_allocator.free(bitmap_memory);
 }
