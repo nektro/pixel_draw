@@ -280,8 +280,8 @@ var bitmap_info = BITMAPINFO{
 };
 
 fn win32ResizeDibSection(width: u32, height: u32) void {
-    win_width = width;
-    win_height = height;
+    draw.win_width = width;
+    draw.win_height = height;
     
     bitmap_info.bmiHeader.biWidth = @intCast(i32, width);
     bitmap_info.bmiHeader.biHeight = @intCast(i32, height);
@@ -290,19 +290,17 @@ fn win32ResizeDibSection(width: u32, height: u32) void {
     bitmap_memory = main_allocator.alloc(u32, width * height * 4) catch unreachable;
     
     main_allocator.free(draw.depth_buffer);
-    draw.depth_buffer = main_allocator.alloc(f32, win_width * win_height) catch unreachable;
+    draw.depth_buffer = main_allocator.alloc(f32, draw.win_width * draw.win_height) catch unreachable;
     
     draw.screen_buffer = @ptrCast(*[]u8, &bitmap_memory).*;
 }
 
 fn win32UpadateWindow(device_context: win.HDC) void {
-    _ = StretchDIBits(device_context, 0, 0, @intCast(c_int, win_width), @intCast(c_int, win_height), 0, @intCast(c_int, win_height), @intCast(c_int, win_width), -@intCast(c_int, win_height), @ptrCast(*c_void, bitmap_memory.ptr), @ptrCast(*c_void, &bitmap_info), 0, 0xcc0020);
+    _ = StretchDIBits(device_context, 0, 0, @intCast(c_int, draw.win_width), @intCast(c_int, draw.win_height), 0, @intCast(c_int, draw.win_height), @intCast(c_int, draw.win_width), -@intCast(c_int, draw.win_height), @ptrCast(*c_void, bitmap_memory.ptr), @ptrCast(*c_void, &bitmap_info), 0, 0xcc0020);
 }
 // === Globals =======================================
 var bitmap_memory: []u32 = undefined;
-pub var main_allocator: *std.mem.Allocator = undefined;
-pub var win_width: u32 = 800;
-pub var win_height: u32 = 600;
+var main_allocator: *std.mem.Allocator = undefined;
 // ===================================================
 
 pub fn plataformInit(al: *std.mem.Allocator, w_width: u32, w_height: u32, start_fn: fn () void, update_fn: fn (f32) void) !void {
@@ -329,14 +327,14 @@ pub fn plataformInit(al: *std.mem.Allocator, w_width: u32, w_height: u32, start_
     
     var window_handle_maybe_null = usr32.CreateWindowExA(0, window_class.lpszClassName, "PixelDraw", WS_OVERLAPEDWINDOW | WS_VISIBLE, 0, 0, @intCast(i32, w_width), @intCast(i32, w_height), null, null, instance, null);
     
-    win_width = w_width;
-    win_height = w_height;
+    draw.win_width = w_width;
+    draw.win_height = w_height;
     
     if (window_handle_maybe_null) |window_handle| {
         _ = usr32.ShowWindow(window_handle, 1);
         
         win32ResizeDibSection(w_width, w_height);
-        //depth_buffer = try main_allocator.alloc(f32, win_width * win_height);
+        //depth_buffer = try main_allocator.alloc(f32, draw.win_width * draw.win_height);
         
         start_fn();
         

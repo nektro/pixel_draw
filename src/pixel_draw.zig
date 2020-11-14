@@ -35,9 +35,6 @@ pub fn mouseButtonPressed(button: MouseButtons) bool {
     return mouse_buttons_pressed[@enumToInt(button)];
 }
 
-pub var screen_buffer: []u8 = undefined;
-pub var depth_buffer: []f32 = undefined;
-
 const Keys = enum(u32) {
     q = 0,
     w = 1,
@@ -78,6 +75,13 @@ pub inline fn keyStrengh(key: Keys) f32 {
 }
 
 pub const init = plataformInit;
+
+// === Globals ========================
+pub var screen_buffer: []u8 = undefined;
+pub var depth_buffer: []f32 = undefined;
+pub var win_width: u32 = 0.0;
+pub var win_height: u32 = 0.0;
+// ===================================
 
 const BmpHeader = packed struct {
     file_type: u16,
@@ -593,6 +597,38 @@ pub fn fillTriangle(xa: i32, ya: i32, xb: i32, yb: i32, xc: i32, yc: i32, color:
     }
 }
 
+// ==== 3d renderer ====
+
+pub const Mesh = struct {
+    v: []Vertex,
+    i: []u32,
+    texture: Texture,
+};
+
+pub const TextureMode = enum {
+    Strech,
+    Tile,
+};
+
+const RasterMode = enum {
+    Points,
+    Lines,
+    NoShadow,
+    Texture,
+};
+
+pub const Camera3D = struct {
+    pos: Vec3 = .{}, rotation: Vec3 = .{}, // Euler angles
+    fov: f32 = 70, near: f32 = 0.1, far: f32 = 100.0
+};
+
+pub const ClipTriangleReturn = struct {
+    triangle0: [3]Vertex,
+    triangle1: [3]Vertex,
+    count: u32 = 0,
+};
+
+
 /// Converts screen coordinates (-1, 1) to pixel coordinates (0, screen size)
 pub inline fn screenToPixel(sc: f32, screen_size: u32) i32 {
     return @floatToInt(i32, (sc + 1.0) * 0.5 * @intToFloat(f32, screen_size));
@@ -826,19 +862,6 @@ pub fn rasterTriangle(triangle: [3]Vertex, texture: Texture, face_lighting: f32)
     }
 }
 
-// ==== 3d stuff ====
-
-pub const Mesh = struct {
-    v: []Vertex,
-    i: []u32,
-    texture: Texture,
-};
-
-pub const TextureMode = enum {
-    Strech,
-    Tile,
-};
-
 /// Creates a mesh made with quads with a given size. vertex colors are random
 pub fn createQuadMesh(al: *Allocator, size_x: u32, size_y: u32, center_x: f32, center_y: f32, texture: Texture, texture_mode: TextureMode) Mesh {
     var result = Mesh{
@@ -1028,24 +1051,6 @@ pub fn meshFromObjData(al: *Allocator, obj_data: []const u8) Mesh {
     
     return result;
 }
-
-const RasterMode = enum {
-    Points,
-    Lines,
-    NoShadow,
-    Texture,
-};
-
-pub const Camera3D = struct {
-    pos: Vec3 = .{}, rotation: Vec3 = .{}, // Euler angles
-    fov: f32 = 70, near: f32 = 0.1, far: f32 = 100.0
-};
-
-pub const ClipTriangleReturn = struct {
-    triangle0: [3]Vertex,
-    triangle1: [3]Vertex,
-    count: u32 = 0,
-};
 
 pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
     var result = ClipTriangleReturn{
