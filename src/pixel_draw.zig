@@ -744,6 +744,7 @@ pub fn rasterTriangle(triangle: [3]Vertex, texture: Texture, face_lighting: f32)
                 x += 4;
                 continue;
             }
+            
             if (@reduce(.And, w2_cmp_4x)) {
                 x += 4;
                 continue;
@@ -753,6 +754,12 @@ pub fn rasterTriangle(triangle: [3]Vertex, texture: Texture, face_lighting: f32)
             w1_4x /= tri1_w_4x;
             w2_4x /= tri2_w_4x;
             const w_sum = w0_4x + w1_4x + w2_4x;
+            
+            if (@reduce(.Or, w_sum == zero_4x)) {
+                x += 4;
+                continue;
+            }
+            
             w0_4x /= w_sum;
             w1_4x /= w_sum;
             w2_4x /= w_sum;
