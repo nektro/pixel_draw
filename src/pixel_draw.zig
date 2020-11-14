@@ -838,7 +838,7 @@ pub fn rasterTriangle(triangle: [3]Vertex, texture: Texture, face_lighting: f32)
                         const tex_u = @floatToInt(u32, u_4x[i]) % texture.width;
                         const tex_v = @floatToInt(u32, v_4x[i]) % texture.height;
                         
-                        const tex_pos = (tex_u + tex_v * texture.height) * 4;
+                        const tex_pos = (tex_u + tex_v * texture.width) * 4;
                         var tpixel = texture.raw[tex_pos..][0..4].*;
                         
                         tpixel[0] = @intCast(u8, tpixel[0] * face_lighting_i / 255);
@@ -1200,7 +1200,7 @@ pub fn drawMesh(mesh: Mesh, mode: RasterMode, cam: Camera3D) void {
         // Lighting
         var face_lighting: f32 = 0.0;
         {
-            var ld = Vec3_normalize(Vec3.c(0.5, 1.0, 1.0));
+            var ld = Vec3_normalize(Vec3.c(0.0, 0.4, 1.0));
             
             face_lighting = Vec3_dot(ld, n);
             if (face_lighting < 0.1) face_lighting = 0.1;

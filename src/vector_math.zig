@@ -310,3 +310,12 @@ pub fn eulerAnglesToDirVector(v: Vec3) Vec3 {
     };
     return result;
 }
+
+pub fn sphericalToCartesian(r: f32, z: f32, a: f32) Vec3 {
+    const result = Vec3{
+        .x = r * @sin(z) * @cos(a),
+        .y = r * @sin(z) * @sin(a),
+        .z = r * @cos(z),
+    };
+    return result;
+}
