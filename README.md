@@ -29,5 +29,3 @@ fn update(delta: f32) void {
     draw.fillCircle(200, 200, 50, draw.Color.c(0.0, 0.0, 1.0, 1.0))
 }
 ```
-
-![](screenshot.png)
