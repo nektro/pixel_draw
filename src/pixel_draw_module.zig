@@ -3,19 +3,28 @@ const math = std.math;
 const assert = std.debug.assert;
 const print = std.debug.print;
 const Allocator = std.mem.Allocator;
+
 const util = @import("util.zig");
+usingnamespace util;
 
 pub const vector_math = @import("vector_math.zig");
 usingnamespace vector_math;
 
-usingnamespace util;
 
-// === Globals ========================
+/// If you want to use the draw functions in this file without opening a window,
+/// or using your own windowing library, you need to set the variables
+/// screen_buffer, depth_buffer, win_width and win_height to its proper variables.
+///
+/// Usage exemple:
+///
+/// win_width = 800;
+/// win_height = 600;
+/// screen_buffer = alloc(u8, win_width * win_height * 4);
+/// depth_buffer = alloc(f32, win_width * win_height);
 pub var screen_buffer: []u8 = undefined;
 pub var depth_buffer: []f32 = undefined;
 pub var win_width: u32 = 0.0;
 pub var win_height: u32 = 0.0;
-// ===================================
 
 const BmpHeader = packed struct {
     file_type: u16,
@@ -44,7 +53,7 @@ pub const Texture = struct {
     raw: []u8,
 };
 
-// Simple texture mapping function, no filter
+/// Maps a u and v value, from 0 to 1, to a pixel on a texture and returns the pixel color
 pub inline fn textureMap(u: f32, v: f32, tex: Texture) Color {
     const tex_u = @floatToInt(u32, (@intToFloat(f32, tex.width) * u)) % tex.width;
     const tex_v = @floatToInt(u32, (@intToFloat(f32, tex.height) * v)) % tex.height;
@@ -59,6 +68,7 @@ pub inline fn textureMap(u: f32, v: f32, tex: Texture) Color {
     };
 }
 
+/// Return a color from rgba values, 0 to 255
 pub fn colorFromRgba(r: u8, g: u8, b: u8, a: u8) Color {
     return Color{
         .r = @intToFloat(f32, r) / 255.0,
@@ -68,8 +78,7 @@ pub fn colorFromRgba(r: u8, g: u8, b: u8, a: u8) Color {
     };
 }
 
-/// This function is problably very unsafe
-/// it will change later
+/// Return a texture from a BMP data, it does not do a allocation, the BMP data pointer is passed directly to the texture data
 pub fn textureFromBmpData(bmp_data: []const u8) !Texture {
     const header: *const BmpHeader = @ptrCast(*const BmpHeader, bmp_data[0..@sizeOf(BmpHeader)]);
     
@@ -86,8 +95,9 @@ pub fn textureFromBmpData(bmp_data: []const u8) !Texture {
     return result_image;
 }
 
-pub inline fn loadBMP(path: []const u8) !Texture {
-    const data = try std.fs.cwd().readFileAlloc(std.heap.c_allocator, path, 1024 * 1024 * 128);
+/// Load a BMP file and returns a Texture. Memory must be freed by the caller
+pub inline fn loadBMP(al: *Allocator, path: []const u8) !Texture {
+    const data = try std.fs.cwd().readFileAlloc(al, path, 1024 * 1024 * 128);
     return textureFromBmpData(data);
 }
 
@@ -106,6 +116,7 @@ const TGAHeader = packed struct {
     image_descriptor: u8,
 };
 
+/// Return a texture from a TGA data. Memory must be freed by the caller
 pub fn textureFromTgaData(al: *Allocator, file_data: []const u8) !Texture {
     const header = @ptrCast(*const TGAHeader, &file_data[0]);
     
@@ -169,7 +180,8 @@ pub fn textureFromTgaData(al: *Allocator, file_data: []const u8) !Texture {
     result.raw = result_data;
     return result;
 }
-/// A simple function that loads a simple Runlength encoded RGBA TGA image
+
+/// Load a TGA texture. Memory must be freed by the caller
 pub fn loadTGA(al: *Allocator, path: []const u8) !Texture {
     const file_data = try std.fs.cwd().readFileAlloc(al, path, 1024 * 1024 * 128);
     defer al.free(file_data);
@@ -177,11 +189,7 @@ pub fn loadTGA(al: *Allocator, path: []const u8) !Texture {
     return try textureFromTgaData(al, file_data);
 }
 
-test "TGA_Read" {
-    assert(@sizeOf(TGAHeader) == 18);
-    _ = try loadTGA("potato.tga");
-}
-
+/// Draw a single pixel to the screen
 pub inline fn putPixel(xi: i32, yi: i32, color: Color) void {
     if (xi > win_width - 1) return;
     if (yi > win_height - 1) return;
@@ -192,6 +200,7 @@ pub inline fn putPixel(xi: i32, yi: i32, color: Color) void {
     const y = @intCast(u32, yi);
     
     const pixel = screen_buffer[(x + y * win_width) * 4 ..][0..3];
+    
     // TODO: Alpha blending
     if (color.a > 0.999) {
         pixel[0] = @floatToInt(u8, color.b * 255);
@@ -200,6 +209,7 @@ pub inline fn putPixel(xi: i32, yi: i32, color: Color) void {
     }
 }
 
+/// Draw a pixel on the screen using RGBA colors
 pub inline fn putPixelRGBA(x: u32, y: u32, r: u8, g: u8, b: u8, a: u8) void {
     if (x > win_width - 1) return;
     if (y > win_height - 1) return;
@@ -215,6 +225,7 @@ pub inline fn putPixelRGBA(x: u32, y: u32, r: u8, g: u8, b: u8, a: u8) void {
     }
 }
 
+/// Draw a solid colored circle on the screen
 pub fn fillCircle(x: i32, y: i32, r: u32, color: Color) void {
     var v: i32 = -@intCast(i32, r);
     while (v <= r) : (v += 1) {
@@ -227,6 +238,8 @@ pub fn fillCircle(x: i32, y: i32, r: u32, color: Color) void {
     }
 }
 
+/// The bitmap font texture is a 16x16 ascii characters
+/// The font size x and y is the character size in pixels on the texture
 pub const BitmapFont = struct {
     texture: Texture,
     font_size_x: u32,
@@ -235,6 +248,8 @@ pub const BitmapFont = struct {
 };
 
 var print_buff: [512]u8 = undefined;
+
+/// Draw a formated text on the screen
 pub fn drawBitmapFontFmt(comptime fmt: []const u8, args: anytype, x: u32, y: u32, scale_x: u32, scale_y: u32, font: BitmapFont) void {
     const fpst = std.fmt.bufPrint(&print_buff, fmt, args) catch {
         drawBitmapFont("text to long", x, y, scale_x, scale_y, font);
@@ -243,6 +258,7 @@ pub fn drawBitmapFontFmt(comptime fmt: []const u8, args: anytype, x: u32, y: u32
     drawBitmapFont(fpst, x, y, scale_x, scale_y, font);
 }
 
+/// Draw a text on the screen
 pub fn drawBitmapFont(text: []const u8, x: u32, y: u32, scale_x: u32, scale_y: u32, font: BitmapFont) void {
     for (text) |t, i| {
         const char_index: u32 = t;
@@ -254,7 +270,7 @@ pub fn drawBitmapFont(text: []const u8, x: u32, y: u32, scale_x: u32, scale_y: u
     }
 }
 
-// TODO(Samuel): Optimize this function
+/// Draw a character on the screen
 pub fn drawBitmapChar(char: u8, x: u32, y: u32, scale_x: u32, scale_y: u32, font: BitmapFont) void {
     const fx = char % 16 * font.font_size_x;
     const fy = char / 16 * font.font_size_y;
@@ -303,6 +319,7 @@ pub fn fillRect(x: i32, y: i32, w: u32, h: u32, color: Color) void {
     }
 }
 
+/// Draw a texture on the screen, the texture can be resized
 pub fn drawTexture(x: i32, y: i32, w: u32, h: u32, tex: Texture) void {
     const max_x = @intCast(i32, win_width);
     const max_y = @intCast(i32, win_height);
@@ -338,7 +355,7 @@ pub fn drawTexture(x: i32, y: i32, w: u32, h: u32, tex: Texture) void {
     }
 }
 
-// Blit texture on screen, does not change the size of the texture
+/// Blit texture on screen, does not change the size of the texture
 pub fn blitTexture(x: i32, y: i32, tex: Texture) void {
     // Clamp values
     const max_x = @intCast(i32, win_width);
@@ -504,6 +521,7 @@ pub fn drawLineWidth(xa: i32, ya: i32, xb: i32, yb: i32, color: Color, line_widt
     }
 }
 
+/// Fill the screen with a RGB color
 pub fn fillScreenWithRGBColor(r: u8, g: u8, b: u8) void {
     var index: usize = 0;
     while (index < screen_buffer.len) : (index += 4) {
@@ -513,12 +531,14 @@ pub fn fillScreenWithRGBColor(r: u8, g: u8, b: u8) void {
     }
 }
 
+/// Draw a triangle
 pub inline fn drawTriangle(xa: i32, ya: i32, xb: i32, yb: i32, xc: i32, yc: i32, color: Color, line_width: u32) void {
     drawLineWidth(xa, ya, xb, yb, color, line_width);
     drawLineWidth(xb, yb, xc, yc, color, line_width);
     drawLineWidth(xc, yc, xa, ya, color, line_width);
 }
 
+/// Draw a solid triangle
 pub fn fillTriangle(xa: i32, ya: i32, xb: i32, yb: i32, xc: i32, yc: i32, color: Color) void {
     const x_left = math.min(math.min(xa, xb), math.max(xc, 0));
     const x_right = math.max(math.max(xa, xb), math.min(xc, @intCast(i32, win_width)));
@@ -577,8 +597,7 @@ pub inline fn screenToPixel(sc: f32, screen_size: u32) i32 {
     return @floatToInt(i32, (sc + 1.0) * 0.5 * @intToFloat(f32, screen_size));
 }
 
-/// Raster a triangle
-pub fn rasterTriangleOld(triangle: [3]Vertex, texture: Texture, face_lighting: f32) void {
+fn rasterTriangleOld(triangle: [3]Vertex, texture: Texture, face_lighting: f32) void {
     const xa = screenToPixel(triangle[0].pos.x, win_width);
     const xb = screenToPixel(triangle[1].pos.x, win_width);
     const xc = screenToPixel(triangle[2].pos.x, win_width);
@@ -876,6 +895,7 @@ pub fn createQuadMesh(al: *Allocator, size_x: u32, size_y: u32, center_x: f32, c
     return result;
 }
 
+/// Create a mesh from a obj file data
 pub fn meshFromObjData(al: *Allocator, obj_data: []const u8) Mesh {
     
     // find mesh size;
@@ -905,11 +925,6 @@ pub fn meshFromObjData(al: *Allocator, obj_data: []const u8) Mesh {
             }
         }
     }
-    
-    std.debug.print("The mesh has {} vetices and {} indexes and {} t\n", .{
-                        v_count, i_count,
-                        t_count,
-                    });
     
     var vert = al.alloc(Vec3, v_count) catch unreachable;
     var uv = al.alloc(Vec2, t_count) catch unreachable;
@@ -995,7 +1010,7 @@ pub fn meshFromObjData(al: *Allocator, obj_data: []const u8) Mesh {
     return result;
 }
 
-
+/// Return a cube mesh
 pub fn cubeMesh(al: *Allocator) Mesh {
     var cube_v = [_]Vertex{
         Vertex.c(Vec3.c(-0.5, 0.5, 0.5), Vec2.c(0, 1)),
