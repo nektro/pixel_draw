@@ -35,6 +35,8 @@ If you want do draw to a generic buffer
 ```zig
 var b = draw.Buffer;
 b.allocate(al, width, height);
+defer b.free(al);
+
 b.fillCircle(200, 200, 50, draw.Color.c(0.0, 0.0, 1.0, 1.0));
 
 // Resize the buffer
