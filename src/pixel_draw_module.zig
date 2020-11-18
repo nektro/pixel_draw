@@ -241,7 +241,9 @@ pub const Buffer = struct {
     
     pub fn allocate(b: *Buffer, al: *Allocator, width: u32, height: u32) !void {
         b.screen = try al.alloc(u8, width * height * 4);
+        errdefer al.free(b.screen);
         b.depth = try al.alloc(f32, width * height);
+        errdefer al.free(b.depth);
         b.width = width;
         b.height = height;
     }
