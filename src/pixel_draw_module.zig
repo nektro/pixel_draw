@@ -11,21 +11,6 @@ pub const vector_math = @import("vector_math.zig");
 usingnamespace vector_math;
 
 
-/// If you want to use the draw functions in this file without opening a window,
-/// or using your own windowing library, you need to set the variables
-/// screen_buffer, depth_buffer, win_width and win_height to its proper variables.
-///
-/// Usage exemple:
-///
-/// win_width = 800;
-/// win_height = 600;
-/// screen_buffer = alloc(u8, win_width * win_height * 4);
-/// depth_buffer = alloc(f32, win_width * win_height);
-//pub var screen_buffer: []u8 = undefined;
-//pub var depth_buffer: []f32 = undefined;
-//pub var win_width: u32 = 0.0;
-//pub var win_height: u32 = 0.0;
-
 const BmpHeader = packed struct {
     file_type: u16,
     file_size: u32,
@@ -242,8 +227,10 @@ pub const Buffer = struct {
     pub fn allocate(b: *Buffer, al: *Allocator, width: u32, height: u32) !void {
         b.screen = try al.alloc(u8, width * height * 4);
         errdefer al.free(b.screen);
+        
         b.depth = try al.alloc(f32, width * height);
         errdefer al.free(b.depth);
+        
         b.width = width;
         b.height = height;
     }
@@ -254,9 +241,12 @@ pub const Buffer = struct {
     }
     
     pub fn resize(b: *Buffer, al: *Allocator, width: u32, height: u32) !void {
-        b.free(al);
-        b.screen = try al.alloc(u8, width * height * 4);
-        b.depth = try al.alloc(f32, width * height);
+        b.screen = try al.realloc(b.screen, width * height * 4);
+        errdefer al.free(b.screen);
+        
+        b.depth = try al.realloc(b.depth, width * height);
+        errdefer al.free(b.depth);
+        
         b.width = width;
         b.height = height;
     }
