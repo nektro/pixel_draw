@@ -57,8 +57,8 @@ pub fn plataformInit(
                      update_fn: fn (f32) void,
                      ) !void {
     main_allocator = al;
-    draw.win_width = w_width;
-    draw.win_height = w_height;
+    draw.gb.width = w_width;
+    draw.gb.height = w_height;
     
     const display = blk: {
         if (c.XOpenDisplay(0)) |d| {
@@ -86,7 +86,7 @@ pub fn plataformInit(
     
     const atrribute_mask: u64 = c.CWBitGravity | c.CWBackPixel | c.CWColormap | c.CWEventMask;
     
-    const window = c.XCreateWindow(display, root_window, 0, 0, draw.win_width, draw.win_height, 0, visual_info.depth, c.InputOutput, visual_info.visual, atrribute_mask, &window_attr);
+    const window = c.XCreateWindow(display, root_window, 0, 0, draw.gb.width, draw.gb.height, 0, visual_info.depth, c.InputOutput, visual_info.visual, atrribute_mask, &window_attr);
     
     if (window == 0) return error.UnableToCreateWindow;
     if (c.XStoreName(display, window, "Hello") == 0) return error.ErrorInRenamingWindow;
@@ -101,10 +101,7 @@ pub fn plataformInit(
     // Setup window buffer
     const pixel_bits = 32;
     const pixel_bytes = pixel_bits / 8;
-    const window_buffer_size = draw.win_width * draw.win_height * pixel_bytes;
-    
-    draw.screen_buffer = try main_allocator.alloc(u8, window_buffer_size);
-    draw.depth_buffer = try main_allocator.alloc(f32, draw.win_width * draw.win_height);
+    try draw.gb.allocate(main_allocator, draw.gb.width, draw.gb.height);
     
     var x_window_buffer = c.XCreateImage(
                                          display,
@@ -112,9 +109,9 @@ pub fn plataformInit(
                                          @intCast(c_uint, visual_info.depth),
                                          c.ZPixmap,
                                          0,
-                                         draw.screen_buffer.ptr,
-                                         draw.win_width,
-                                         draw.win_height,
+                                         draw.gb.screen.ptr,
+                                         draw.gb.width,
+                                         draw.gb.height,
                                          pixel_bits,
                                          0,
                                          );
@@ -136,7 +133,7 @@ pub fn plataformInit(
         initTime = std.time.nanoTimestamp();
         // std.debug.print("{d:0.4} {d:0.4}\n", .{ 1.0 / delta, delta });
         
-        for (draw.depth_buffer) |*it| it.* = std.math.inf_f32;
+        for (draw.gb.depth) |*it| it.* = std.math.inf_f32;
         
         var event: c.XEvent = undefined;
         
@@ -197,8 +194,8 @@ pub fn plataformInit(
                     const nheight = @intCast(u32, e.height);
                     
                     size_has_changed = true;
-                    draw.win_width = nwidth;
-                    draw.win_height = nheight;
+                    draw.gb.width = nwidth;
+                    draw.gb.height = nheight;
                 },
                 
                 c.KeyPress => {
@@ -248,12 +245,7 @@ pub fn plataformInit(
             size_has_changed = false;
             
             // Free memory
-            main_allocator.free(draw.screen_buffer);
-            const new_size = draw.win_width * draw.win_height * pixel_bytes;
-            draw.screen_buffer = try main_allocator.alloc(u8, new_size);
-            
-            main_allocator.free(draw.depth_buffer);
-            draw.depth_buffer = try main_allocator.alloc(f32, draw.win_width * draw.win_height);
+            try draw.gb.resize(main_allocator, draw.gb.width, draw.gb.height);
             
             x_window_buffer = c.XCreateImage(
                                              display,
@@ -261,9 +253,9 @@ pub fn plataformInit(
                                              @intCast(c_uint, visual_info.depth),
                                              c.ZPixmap,
                                              0,
-                                             draw.screen_buffer.ptr,
-                                             draw.win_width,
-                                             draw.win_height,
+                                             draw.gb.screen.ptr,
+                                             draw.gb.width,
+                                             draw.gb.height,
                                              pixel_bits,
                                              0,
                                              );
@@ -271,8 +263,7 @@ pub fn plataformInit(
         
         update_fn(delta);
         
-        _ = c.XPutImage(display, window, default_graphics_context, x_window_buffer, 0, 0, 0, 0, draw.win_width, draw.win_height);
+        _ = c.XPutImage(display, window, default_graphics_context, x_window_buffer, 0, 0, 0, 0, draw.gb.width, draw.gb.height);
     }
-    main_allocator.free(draw.screen_buffer);
-    main_allocator.free(draw.depth_buffer);
+    draw.gb.free(main_allocator);
 }

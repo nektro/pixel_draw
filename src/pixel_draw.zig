@@ -70,3 +70,6 @@ pub inline fn keyStrengh(key: Keys) f32 {
 pub const init = plataformInit;
 
 pub usingnamespace @import("pixel_draw_module.zig");
+
+/// This is only used with the plataform layer
+pub var gb: Buffer = undefined;

@@ -1,6 +1,6 @@
 A lib to draw struff on the screen easily writen in zig
 
-```rust
+```zig
 const draw = @import("pixel_draw.zig");
 
 var main_allocator: *Allocator = undefined;
@@ -20,12 +20,12 @@ fn start() void {
 
 
 fn update(delta: f32) void {
-    draw.fillScreenWithRGBColor(100, 100, 100);
+    draw.gb.fillScreenWithRGBColor(100, 100, 100);
     
     // Draw a white line
-    draw.drawLine(100, 100, 200, 200, draw.Color.c(1.0, 1.0, 1.0, 1.0));
+    draw.gb.drawLine(100, 100, 200, 200, draw.Color.c(1.0, 1.0, 1.0, 1.0));
     
     // Draw a blue circle with a radius of 50 pixels
-    draw.fillCircle(200, 200, 50, draw.Color.c(0.0, 0.0, 1.0, 1.0))
+    draw.gb.fillCircle(200, 200, 50, draw.Color.c(0.0, 0.0, 1.0, 1.0))
 }
 ```

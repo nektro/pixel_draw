@@ -59,7 +59,6 @@ var cam: draw.Camera3D = .{ .pos = .{ .z = 2.0 }, .far = 100000 };
 var mov_speed: f32 = 2.0;
 
 fn update(delta: f32) void {
-    draw.fillScreenWithRGBColor(0, 0, 0);
     
     if (draw.keyPressed(.up)) cam.rotation.x += delta * 2;
     if (draw.keyPressed(.down)) cam.rotation.x -= delta * 2;
@@ -89,8 +88,8 @@ fn update(delta: f32) void {
     
     cam.pos = Vec3_add(camera_delta_p, cam.pos);
     
-    draw.drawMesh(earth_mesh, .Texture, cam);
-    
-    draw.drawBitmapFontFmt("{d:0.4}/{d:0.4}/{d}", .{ 1 / delta, delta, mov_speed }, 20, 20, 1, 1, font);
+    draw.gb.fillScreenWithRGBColor(0, 0, 0);
+    draw.gb.drawMesh(earth_mesh, .Texture, cam);
+    draw.gb.drawBitmapFontFmt("{d:0.4}/{d:0.4}/{d}", .{ 1 / delta, delta, mov_speed }, 20, 20, 1, 1, font);
 }
 
