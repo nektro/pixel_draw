@@ -815,7 +815,7 @@ pub const Buffer = struct {
                 if (face_lighting < 0.1) face_lighting = 0.1;
             }
             
-            var triangle_l: [16][3]Vertex = undefined;
+            var triangle_l: [8][3]Vertex = undefined;
             var triangle_l_len: u32 = 1;
             triangle_l[0] = triangle;
             
@@ -899,22 +899,21 @@ pub const Buffer = struct {
                         const pixel_size_y = 1.0 / @intToFloat(f32, b.height);
                         const pixel_size_x = 1.0 / @intToFloat(f32, b.width);
                         
-                        const pa_x = @floatToInt(i32, (triangle[0].pos.x + 1) / (2 * pixel_size_x));
-                        const pa_y = @floatToInt(i32, (-triangle[0].pos.y + 1) / (2 * pixel_size_y));
+                        const xa = screenToPixel(triangle[0].pos.x, b.width);
+                        const xb = screenToPixel(triangle[1].pos.x, b.width);
+                        const xc = screenToPixel(triangle[2].pos.x, b.width);
                         
-                        const pb_x = @floatToInt(i32, (triangle[1].pos.x + 1) / (2 * pixel_size_x));
-                        const pb_y = @floatToInt(i32, (-triangle[1].pos.y + 1) / (2 * pixel_size_y));
-                        
-                        const pc_x = @floatToInt(i32, (triangle[2].pos.x + 1) / (2 * pixel_size_x));
-                        const pc_y = @floatToInt(i32, (-triangle[2].pos.y + 1) / (2 * pixel_size_y));
+                        const ya = screenToPixel(-triangle[0].pos.y, b.height);
+                        const yb = screenToPixel(-triangle[1].pos.y, b.height);
+                        const yc = screenToPixel(-triangle[2].pos.y, b.height);
                         
                         if (mode == .Points) {
-                            fillCircle(b, pa_x, pa_y, 5, Color.c(1, 1, 1, 1));
-                            fillCircle(b, pb_x, pb_y, 5, Color.c(1, 1, 1, 1));
-                            fillCircle(b, pc_x, pc_y, 5, Color.c(1, 1, 1, 1));
+                            fillCircle(b, xa, ya, 5, Color.c(1, 1, 1, 1));
+                            fillCircle(b, xb, yb, 5, Color.c(1, 1, 1, 1));
+                            fillCircle(b, xc, yc, 5, Color.c(1, 1, 1, 1));
                         } else if (mode == .Lines) {
                             const line_color = Color.c(1, 1, 1, 1);
-                            drawTriangle(b, pa_x, pa_y, pb_x, pb_y, pc_x, pc_y, line_color, 1);
+                            drawTriangle(b, xa, ya, xb, yb, xc, yc, line_color, 1);
                         }
                     },
                     .NoShadow => {
