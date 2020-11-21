@@ -750,8 +750,8 @@ pub const Buffer = struct {
                             
                             var color = Color{};
                             
-                            const tex_u = @floatToInt(u32, u_4x[i]) % texture.width;
-                            const tex_v = @floatToInt(u32, v_4x[i]) % texture.height;
+                            const tex_u = @intCast(usize, @mod(@floatToInt(i32, u_4x[i]), @intCast(i32, texture.width)));
+                            const tex_v = @intCast(usize, @mod(@floatToInt(i32, v_4x[i]), @intCast(i32, texture.height)));
                             
                             const tex_pos = (tex_u + tex_v * texture.width) * 4;
                             var tpixel = texture.raw[tex_pos..][0..4].*;
