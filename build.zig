@@ -25,10 +25,10 @@ pub fn build(b: *Builder) void {
         exe.strip = true;
 
     if (@import("builtin").os.tag != .windows) {
-        exe.linkSystemLibrary("c");
         exe.linkSystemLibrary("X11");
     }
 
+    exe.linkSystemLibrary("c");
     exe.install();
 
     const run_cmd = exe.run();

@@ -235,25 +235,6 @@ fn mainWindowCallback(window: win.HWND, message: c_uint, w_param: usize, l_param
             usr32.PostQuitMessage(0);
         },
         
-        usr32.WM_KEYDOWN => {
-            const key = @intCast(u32, w_param);
-            for (keys_down) |*it, i| {
-                if (keymap[i] == key) {
-                    it.* = true;
-                    keys_pressed[i] = true;
-                }
-            }
-        },
-        usr32.WM_KEYUP => {
-            const key = @intCast(u32, w_param);
-            for (keys_up) |*it, i| {
-                if (keymap[i] == key) {
-                    it.* = true;
-                    keys_pressed[i] = false;
-                }
-            }
-        },
-        
         else => {
             result = win.user32.DefWindowProcA(window, message, w_param, l_param);
         },
@@ -280,23 +261,20 @@ var bitmap_info = BITMAPINFO{
 };
 
 fn win32ResizeDibSection(width: u32, height: u32) void {
-    draw.win_width = width;
-    draw.win_height = height;
+    draw.gb.width = width;
+    draw.gb.height = height;
     
     bitmap_info.bmiHeader.biWidth = @intCast(i32, width);
     bitmap_info.bmiHeader.biHeight = @intCast(i32, height);
     
-    main_allocator.free(bitmap_memory);
-    bitmap_memory = main_allocator.alloc(u32, width * height * 4) catch unreachable;
+    bitmap_memory = main_allocator.realloc(bitmap_memory, width * height * 4) catch unreachable;
+    draw.gb.depth = main_allocator.realloc(draw.gb.depth, draw.gb.width * draw.gb.height) catch unreachable;
     
-    main_allocator.free(draw.depth_buffer);
-    draw.depth_buffer = main_allocator.alloc(f32, draw.win_width * draw.win_height) catch unreachable;
-    
-    draw.screen_buffer = @ptrCast(*[]u8, &bitmap_memory).*;
+    draw.gb.screen = @ptrCast(*[]u8, &bitmap_memory).*;
 }
 
 fn win32UpadateWindow(device_context: win.HDC) void {
-    _ = StretchDIBits(device_context, 0, 0, @intCast(c_int, draw.win_width), @intCast(c_int, draw.win_height), 0, @intCast(c_int, draw.win_height), @intCast(c_int, draw.win_width), -@intCast(c_int, draw.win_height), @ptrCast(*c_void, bitmap_memory.ptr), @ptrCast(*c_void, &bitmap_info), 0, 0xcc0020);
+    _ = StretchDIBits(device_context, 0, 0, @intCast(c_int, draw.gb.width), @intCast(c_int, draw.gb.height), 0, @intCast(c_int, draw.gb.height), @intCast(c_int, draw.gb.width), -@intCast(c_int, draw.gb.height), @ptrCast(*c_void, bitmap_memory.ptr), @ptrCast(*c_void, &bitmap_info), 0, 0xcc0020);
 }
 // === Globals =======================================
 var bitmap_memory: []u32 = undefined;
@@ -327,14 +305,14 @@ pub fn plataformInit(al: *std.mem.Allocator, w_width: u32, w_height: u32, start_
     
     var window_handle_maybe_null = usr32.CreateWindowExA(0, window_class.lpszClassName, "PixelDraw", WS_OVERLAPEDWINDOW | WS_VISIBLE, 0, 0, @intCast(i32, w_width), @intCast(i32, w_height), null, null, instance, null);
     
-    draw.win_width = w_width;
-    draw.win_height = w_height;
+    draw.gb.width = w_width;
+    draw.gb.height = w_height;
     
     if (window_handle_maybe_null) |window_handle| {
         _ = usr32.ShowWindow(window_handle, 1);
         
         win32ResizeDibSection(w_width, w_height);
-        //depth_buffer = try main_allocator.alloc(f32, draw.win_width * draw.win_height);
+        //depth_buffer = try main_allocator.alloc(f32, draw.gb.width * draw.gb.height);
         
         start_fn();
         
@@ -348,14 +326,38 @@ pub fn plataformInit(al: *std.mem.Allocator, w_width: u32, w_height: u32, start_
             delta = @floatCast(f32, @intToFloat(f64, initTime) / 1000000000);
             initTime = std.time.nanoTimestamp();
             
-            for (draw.depth_buffer) |*it| it.* = std.math.inf_f32;
+            for (draw.gb.depth) |*it| it.* = std.math.inf_f32;
             
             for (keys_up) |*it| it.* = false;
             for (keys_down) |*it| it.* = false;
             while (usr32.PeekMessageA(&msg, null, 0, 0, 0x0001)) { // 0x0001 = PM_REMOVE
-                if (msg.message == usr32.WM_QUIT) {
-                    running = false;
+                
+                switch (msg.message) {
+                    usr32.WM_QUIT => running = false,
+                    
+                    usr32.WM_KEYDOWN => {
+                        const key = @intCast(u32, msg.wParam);
+                        for (keys_down) |*it, i| {
+                            if (keymap[i] == key) {
+                                it.* = true;
+                                keys_pressed[i] = true;
+                            }
+                        }
+                    },
+                    
+                    usr32.WM_KEYUP => {
+                        const key = @intCast(u32, msg.wParam);
+                        for (keys_up) |*it, i| {
+                            if (keymap[i] == key) {
+                                it.* = true;
+                                keys_pressed[i] = false;
+                            }
+                        }
+                    },
+                    
+                    else => {},
                 }
+                
                 _ = usr32.TranslateMessage(&msg);
                 _ = usr32.DispatchMessageA(&msg);
             }
@@ -369,4 +371,5 @@ pub fn plataformInit(al: *std.mem.Allocator, w_width: u32, w_height: u32, start_
     }
     
     main_allocator.free(bitmap_memory);
+    main_allocator.free(draw.gb.depth);
 }
