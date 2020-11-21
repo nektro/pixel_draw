@@ -55,7 +55,7 @@ fn end() void {
     main_allocator.free(earth_mesh.i);
 }
 
-var cam: draw.Camera3D = .{ .pos = .{ .z = 2.0 }, .far = 100000 };
+var cam: draw.Camera3D = .{ .pos = .{ .z = 20.0 }, .far = 100000 };
 var mov_speed: f32 = 2.0;
 
 fn update(delta: f32) void {
