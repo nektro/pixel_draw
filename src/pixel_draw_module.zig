@@ -1122,7 +1122,7 @@ pub fn createQuadMesh(al: *Allocator, size_x: u32, size_y: u32, center_x: f32, c
     if (texture_mode == .Strech) {
         for (result.v) |*v, i| {
             v.uv.x = (v.pos.x + center_x) / @intToFloat(f32, size_x);
-            v.uv.y = (v.pos.y + center_y) / @intToFloat(f32, size_y);
+            v.uv.y = 1.0 - (v.pos.y + center_y) / @intToFloat(f32, size_y);
         }
     } else if (texture_mode == .Tile) {
         for (result.v) |*v, i| {
