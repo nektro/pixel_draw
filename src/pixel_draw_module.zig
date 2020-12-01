@@ -288,12 +288,13 @@ pub const Buffer = struct {
     }
     
     /// Draw a solid colored circle on the screen
-    pub fn fillCircle(b: Buffer, x: i32, y: i32, r: u32, color: Color) void {
+    pub fn fillCircle(b: Buffer, x: i32, y: i32, d: u32, color: Color) void {
+        const r = (d / 2) + 1;
         var v: i32 = -@intCast(i32, r);
         while (v <= r) : (v += 1) {
             var u: i32 = -@intCast(i32, r);
             while (u <= r) : (u += 1) {
-                if (u * u + v * v < (r * r)) {
+                if (u * u + v * v < (d * d / 4)) {
                     putPixel(b, x + u, y + v, color);
                 }
             }
@@ -551,7 +552,7 @@ pub const Buffer = struct {
             }
             
             while (y <= yd) : (y += 1) {
-                fillCircle(b, @floatToInt(i32, x), y, line_width / 2, color);
+                fillCircle(b, @floatToInt(i32, x), y, line_width, color);
                 x += dx;
             }
         } else {

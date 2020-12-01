@@ -91,5 +91,10 @@ fn update(delta: f32) void {
     draw.gb.fillScreenWithRGBColor(0, 0, 0);
     draw.gb.drawMesh(earth_mesh, .Texture, cam);
     draw.gb.drawBitmapFontFmt("{d:0.4}/{d:0.4}/{d}", .{ 1 / delta, delta, mov_speed }, 20, 20, 1, 1, font);
+    
+    draw.gb.fillCircle(100, 100, 10, Color.c(1, 0, 0, 1));
+    draw.gb.fillCircle(100, 120, 5, Color.c(1, 0, 0, 1));
+    
+    draw.gb.drawLineWidth(120, 100, 150, 150, Color.c(0, 1, 0, 1), 5);
 }
 
