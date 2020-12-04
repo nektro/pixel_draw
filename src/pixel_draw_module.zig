@@ -820,10 +820,10 @@ pub const Buffer = struct {
             // Lighting
             var face_lighting: f32 = 1.0;
             {
-                //var ld = Vec3_normalize(Vec3.c(2.0, -2.0, 1.0));
+                var ld = Vec3_normalize(Vec3.c(0.5, -2.0, 1.0));
                 
-                //face_lighting = Vec3_dot(ld, n);
-                //if (face_lighting < 0.1) face_lighting = 0.1;
+                face_lighting = Vec3_dot(ld, n.neg());
+                if (face_lighting < 0.1) face_lighting = 0.1;
             }
             
             var triangle_l: [8][3]Vertex = undefined;
@@ -951,6 +951,18 @@ pub fn cubeMesh(al: *Allocator) Mesh {
         Vertex.c(Vec3.c(0.5, 0.5, -0.5), Vec2.c(0, 1)),
         Vertex.c(Vec3.c(-0.5, -0.5, -0.5), Vec2.c(1, 0)),
         Vertex.c(Vec3.c(0.5, -0.5, -0.5), Vec2.c(0, 0)),
+        
+        
+        // top
+        Vertex.c(Vec3.c(-0.5, 0.5, 0.5), Vec2.c(0, 0)),
+        Vertex.c(Vec3.c(0.5, 0.5, 0.5), Vec2.c(1, 0)),
+        Vertex.c(Vec3.c(-0.5, -0.5, 0.5), Vec2.c(0, 1)),
+        Vertex.c(Vec3.c(0.5, -0.5, 0.5), Vec2.c(1, 1)),
+        
+        Vertex.c(Vec3.c(-0.5, 0.5, -0.5), Vec2.c(0, 1)),
+        Vertex.c(Vec3.c(0.5, 0.5, -0.5), Vec2.c(1, 1)),
+        Vertex.c(Vec3.c(-0.5, -0.5, -0.5), Vec2.c(0, 0)),
+        Vertex.c(Vec3.c(0.5, -0.5, -0.5), Vec2.c(1, 0)),
     };
     
     var cube_i = [_]u32{
@@ -958,14 +970,17 @@ pub fn cubeMesh(al: *Allocator) Mesh {
         0, 3, 1,
         1, 3, 7,
         1, 7, 5,
-        4, 0, 1,
-        4, 1, 5,
+        
         4, 6, 2,
         4, 2, 0,
-        6, 3, 2,
-        6, 7, 3,
         5, 7, 6,
         5, 6, 4,
+        
+        // top
+        4 + 8, 0 + 8, 1 + 8,
+        4 + 8, 1 + 8, 5 + 8,
+        6 + 8, 3 + 8, 2 + 8,
+        6 + 8, 7 + 8, 3 + 8,
     };
     
     var cube_mesh = Mesh{
