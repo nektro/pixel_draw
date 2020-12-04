@@ -72,6 +72,16 @@ pub const Vertex = struct {
     }
 };
 
+pub const Transform = struct {
+    position: Vec3 = .{},
+    rotation: Vec3 = .{}, // TODO(Samuel): Change to rotor
+    scale: Vec3 = .{
+        .x = 1,
+        .y = 1,
+        .z = 1,
+    },
+};
+
 pub fn lerp(a: f32, b: f32, t: f32) f32 {
     const result = (1 - t) * a + t * b;
     return result;

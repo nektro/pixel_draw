@@ -783,7 +783,8 @@ pub const Buffer = struct {
         }
     }
     
-    pub fn drawMesh(b: Buffer, mesh: Mesh, mode: RasterMode, cam: Camera3D) void {
+    pub fn drawMesh(b: Buffer, mesh: Mesh, mode: RasterMode, cam: Camera3D, transform: Transform) void {
+        
         const hw_ratio = @intToFloat(f32, b.height) /
             @intToFloat(f32, b.width);
         const proj_matrix = perspectiveMatrix(cam.near, cam.far, cam.fov, hw_ratio);
@@ -795,6 +796,15 @@ pub const Buffer = struct {
             const ic = mesh.i[index + 2];
             
             var triangle = [_]Vertex{ mesh.v[ia], mesh.v[ib], mesh.v[ic] };
+            
+            // World Trasform
+            {
+                var i: u32 = 0;
+                while (i < 3) : (i += 1) {
+                    triangle[i].pos = Vec3_add(triangle[i].pos, transform.position);
+                }
+            }
+            
             
             // Calculate normal
             var n = Vec3{};
@@ -808,12 +818,12 @@ pub const Buffer = struct {
             if (face_normal_dir > 0.0) continue;
             
             // Lighting
-            var face_lighting: f32 = 0.0;
+            var face_lighting: f32 = 1.0;
             {
-                var ld = Vec3_normalize(Vec3.c(0.0, 0.4, 1.0));
+                //var ld = Vec3_normalize(Vec3.c(2.0, -2.0, 1.0));
                 
-                face_lighting = Vec3_dot(ld, n);
-                if (face_lighting < 0.1) face_lighting = 0.1;
+                //face_lighting = Vec3_dot(ld, n);
+                //if (face_lighting < 0.1) face_lighting = 0.1;
             }
             
             var triangle_l: [8][3]Vertex = undefined;
@@ -824,7 +834,7 @@ pub const Buffer = struct {
             {
                 var i: u32 = 0;
                 while (i < 3) : (i += 1) {
-                    triangle_l[0][i].pos = Vec3_sub(triangle[i].pos, cam.pos);
+                    triangle_l[0][i].pos = Vec3_sub(triangle_l[0][i].pos, cam.pos);
                     
                     triangle_l[0][i].pos = rotateVectorOnY(triangle_l[0][i].pos, cam.rotation.y);
                     
@@ -958,9 +968,9 @@ pub fn cubeMesh(al: *Allocator) Mesh {
         5, 6, 4,
     };
     
-    var cube_mesh = draw.Mesh{
-        .v = al.alloc(Vertex, cube_v.len),
-        .i = al.alloc(u32, cube_i.len),
+    var cube_mesh = Mesh{
+        .v = al.alloc(Vertex, cube_v.len) catch @panic("alloc error\n"),
+        .i = al.alloc(u32, cube_i.len) catch @panic("alloc error\n"),
         .texture = undefined,
     };
     

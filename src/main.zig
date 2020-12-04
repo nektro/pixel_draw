@@ -15,13 +15,13 @@ const voxel = @import("voxel.zig");
 var main_allocator: *Allocator = undefined;
 var font: draw.BitmapFont = undefined;
 var potato: Texture = undefined;
-var earth_mesh: draw.Mesh = undefined;
-var mundi: draw.Texture = undefined;
+var cube_mesh: draw.Mesh = undefined;
+var test_chunk: voxel.Chunk = undefined;
 // =========================================
 
 pub fn main() anyerror!void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
+    //defer _ = gpa.deinit(); // NOTE(Samuel): Dont want leak test
     
     main_allocator = &gpa.allocator;
     
@@ -31,6 +31,7 @@ pub fn main() anyerror!void {
 
 fn start() void {
     voxel.initBlockList(main_allocator) catch @panic("Unable to init block list");
+    test_chunk = voxel.Chunk.init();
     
     font = .{
         .texture = draw.textureFromTgaData(main_allocator, @embedFile("../assets/font.tga")) catch unreachable,
@@ -40,23 +41,17 @@ fn start() void {
     };
     
     potato = draw.textureFromTgaData(main_allocator, @embedFile("../assets/potato.tga")) catch unreachable;
-    mundi = draw.textureFromTgaData(main_allocator, @embedFile("../assets/mundi.tga")) catch unreachable;
     
-    earth_mesh = draw.createQuadMesh(main_allocator, 32, 32, 0, 0, mundi, .Strech);
-    for (earth_mesh.v) |*v| {
-        v.pos.x = (v.pos.x / 32.0) * -3.141592 * 2;
-        v.pos.y = (v.pos.y / 32.0) * -3.141592;
-        v.pos = sphericalToCartesian(10.0, v.pos.y, v.pos.x);
-        v.pos = rotateVectorOnX(v.pos, -3.1415926535 * 0.5);
-    }
+    cube_mesh = draw.cubeMesh(main_allocator);
+    cube_mesh.texture = potato;
 }
 
 fn end() void {
-    main_allocator.free(font.texture.raw);
-    main_allocator.free(potato.raw);
-    main_allocator.free(mundi.raw);
-    main_allocator.free(earth_mesh.v);
-    main_allocator.free(earth_mesh.i);
+    // NOTE(Samuel): Let the OS handle this
+    //main_allocator.free(font.texture.raw);
+    //main_allocator.free(potato.raw);
+    //main_allocator.free(cube_mesh.v);
+    //main_allocator.free(cube_mesh.i);
 }
 
 var cam: draw.Camera3D = .{ .pos = .{ .z = 20.0 }, .far = 100000 };
@@ -92,14 +87,27 @@ fn update(delta: f32) void {
     
     cam.pos = Vec3_add(camera_delta_p, cam.pos);
     
-    draw.gb.fillScreenWithRGBColor(0, 0, 0);
-    draw.gb.drawMesh(earth_mesh, .Texture, cam);
+    draw.gb.fillScreenWithRGBColor(50, 50, 200);
+    {
+        for (test_chunk.block_data) |*it, i| {
+            if (it.* != 0) {
+                var x: u32 = 0;
+                var y: u32 = 0;
+                var z: u32 = 0;
+                
+                voxel.Chunk.posFromI(i, &x, &y, &z);
+                const transform = Transform{
+                    .position = .{
+                        .x = @intToFloat(f32, x),
+                        .y = @intToFloat(f32, y),
+                        .z = @intToFloat(f32, z),
+                    },
+                };
+                draw.gb.drawMesh(cube_mesh, .Texture, cam, transform);
+            }
+        }
+    }
     draw.gb.drawBitmapFontFmt("{d:0.4}/{d:0.4}/{d}", .{ 1 / delta, delta, mov_speed }, 20, 20, 1, 1, font);
     
-    draw.gb.fillCircle(100, 100, 8, Color.c(1, 0, 0, 1));
-    draw.gb.fillCircle(100, 120, 5, Color.c(1, 0, 0, 1));
-    draw.gb.fillCircle(100, 150, 51, Color.c(1, 0, 0, 1));
-    
-    draw.gb.drawLineWidth(120, 100, 150, 150, Color.c(0, 1, 0, 1), 5);
 }
 
