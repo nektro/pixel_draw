@@ -9,6 +9,8 @@ const draw = @import("pixel_draw.zig");
 usingnamespace draw.vector_math;
 const Texture = draw.Texture;
 
+const voxel = @import("voxel.zig");
+
 // ========== Global Variables =============
 var main_allocator: *Allocator = undefined;
 var font: draw.BitmapFont = undefined;
@@ -28,6 +30,8 @@ pub fn main() anyerror!void {
 }
 
 fn start() void {
+    voxel.initBlockList(main_allocator) catch @panic("Unable to init block list");
+    
     font = .{
         .texture = draw.textureFromTgaData(main_allocator, @embedFile("../assets/font.tga")) catch unreachable,
         .font_size_x = 12,
