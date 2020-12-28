@@ -10,7 +10,6 @@ usingnamespace util;
 pub const vector_math = @import("vector_math.zig");
 usingnamespace vector_math;
 
-
 const BmpHeader = packed struct {
     file_type: u16,
     file_size: u32,
@@ -437,6 +436,47 @@ pub const Buffer = struct {
             const pixel = b.screen[buffer_i..];
             
             @memcpy(pixel.ptr, tex_pixel.ptr, 4 * (x2 - x1));
+            
+            texture_y += 1;
+        }
+    }
+    
+    /// Blit texture on screen, does not change the size of the texture
+    pub fn blitTextureAlpha(b: Buffer, x: i32, y: i32, tex: Texture) void {
+        // Clamp values
+        const max_x = @intCast(i32, b.width);
+        const max_y = @intCast(i32, b.height);
+        
+        const x1 = @intCast(u32, std.math.clamp(x, 0, max_x));
+        const y1 = @intCast(u32, std.math.clamp(y, 0, max_y));
+        
+        const sx2 = @intCast(i32, tex.width) + x;
+        const sy2 = @intCast(i32, tex.height) + y;
+        const x2 = @intCast(u32, std.math.clamp(sx2, 0, max_x));
+        const y2 = @intCast(u32, std.math.clamp(sy2, 0, max_y));
+        
+        var texture_y: u32 = if (y < y1) @intCast(u32, @intCast(i32, y1) - y) else 0;
+        var screen_y: u32 = y1;
+        
+        const texture_x: u32 = if (x < x1 and x2 > 0) @intCast(u32, @intCast(i32, x1) - x) else 0;
+        while (screen_y < y2) : (screen_y += 1) {
+            // get pointer to pixel on texture
+            const tex_pixel_pos = 4 * (texture_x + texture_y * tex.width);
+            const tex_pixel = tex.raw[tex_pixel_pos..];
+            
+            // get pointer to pixel on screen
+            const buffer_i = 4 * (x1 + screen_y * b.width);
+            const pixel = b.screen[buffer_i..];
+            
+            var xi: u32 = x1;
+            while (xi < x2) : (xi += 1) {
+                const pos = (xi - x1) * 4;
+                if (tex_pixel[pos + 3] > 0) {
+                    pixel[pos] = tex_pixel[pos];
+                    pixel[pos + 1] = tex_pixel[pos + 1];
+                    pixel[pos + 2] = tex_pixel[pos + 2];
+                }
+            }
             
             texture_y += 1;
         }
