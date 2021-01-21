@@ -251,14 +251,14 @@ pub const Buffer = struct {
     }
     
     /// Draw a single pixel to the screen
-    pub inline fn putPixel(b: Buffer, xi: i32, yi: i32, color: Color) void {
+    pub inline fn putPixel(b: Buffer, xi: i64, yi: i64, color: Color) void {
         if (xi > b.width - 1) return;
         if (yi > b.height - 1) return;
         if (xi < 0) return;
         if (yi < 0) return;
         
-        const x = @intCast(u32, xi);
-        const y = @intCast(u32, yi);
+        const x = @intCast(u64, xi);
+        const y = @intCast(u64, yi);
         
         const pixel = b.screen[ (x + y * b.width) * 4 ..][0..3];
         
@@ -271,13 +271,13 @@ pub const Buffer = struct {
     }
     
     /// Draw a pixel on the screen using RGBA colors
-    pub inline fn putPixelRGBA(buf: Buffer, x: u32, y: u32, r: u8, g: u8, b: u8, a: u8) void {
+    pub inline fn putPixelRGBA(buf: Buffer, x: i64, y: i64, r: u8, g: u8, b: u8, a: u8) void {
         if (x > buf.width - 1) return;
         if (y > buf.height - 1) return;
         if (x < 0) return;
         if (y < 0) return;
         
-        const pixel = buf.screen[(x + y * buf.width) * 4 ..][0..3];
+        const pixel = buf.screen[@intCast(usize, x + y * buf.width) * 4 ..][0..3];
         // TODO: Alpha blending
         if (a > 0) {
             pixel[0] = r;
@@ -287,11 +287,11 @@ pub const Buffer = struct {
     }
     
     /// Draw a solid colored circle on the screen
-    pub fn fillCircle(b: Buffer, x: i32, y: i32, d: u32, color: Color) void {
-        const r = (d / 2) + 1;
-        var v: i32 = -@intCast(i32, r);
+    pub fn fillCircle(b: Buffer, x: i64, y: i64, d: u64, color: Color) void {
+        var r = @intCast(i64, d / 2) + 1;
+        var v: i64 = -r;
         while (v <= r) : (v += 1) {
-            var u: i32 = -@intCast(i32, r);
+            var u: i64 = -r;
             while (u <= r) : (u += 1) {
                 if (u * u + v * v < (d * d / 4)) {
                     putPixel(b, x + u, y + v, color);
@@ -303,7 +303,7 @@ pub const Buffer = struct {
     var print_buff: [512]u8 = undefined;
     
     /// Draw a formated text on the screen
-    pub fn drawBitmapFontFmt(b: Buffer, comptime fmt: []const u8, args: anytype, x: u32, y: u32, scale_x: u32, scale_y: u32, font: BitmapFont) void {
+    pub fn drawBitmapFontFmt(b: Buffer, comptime fmt: []const u8, args: anytype, x: i64, y: i64, scale_x: u64, scale_y: u64, font: BitmapFont) void {
         const fpst = std.fmt.bufPrint(&print_buff, fmt, args) catch {
             drawBitmapFont(b, "text to long", x, y, scale_x, scale_y, font);
             return;
@@ -312,36 +312,38 @@ pub const Buffer = struct {
     }
     
     /// Draw a text on the screen
-    pub fn drawBitmapFont(b: Buffer, text: []const u8, x: u32, y: u32, scale_x: u32, scale_y: u32, font: BitmapFont) void {
+    pub fn drawBitmapFont(b: Buffer, text: []const u8, x: i64, y: i64, scale_x: u64, scale_y: u64, font: BitmapFont) void {
         for (text) |t, i| {
-            const char_index: u32 = t;
+            const char_index: u64 = t;
             const fx = char_index % 16 * font.font_size_x;
             const fy = char_index / 16 * font.font_size_y;
             
-            const x_pos = x + @intCast(u32, i) * scale_x * font.character_spacing;
+            const x_pos = x + @intCast(i64, i * scale_x * font.character_spacing);
             drawBitmapChar(b, t, x_pos, y, scale_x, scale_y, font);
         }
     }
     
     /// Draw a character on the screen
-    pub fn drawBitmapChar(b: Buffer, char: u8, x: u32, y: u32, scale_x: u32, scale_y: u32, font: BitmapFont) void {
+    pub fn drawBitmapChar(b: Buffer, char: u8, x: i64, y: i64, scale_x: u64, scale_y: u64, font: BitmapFont) void {
         const fx = char % 16 * font.font_size_x;
         const fy = char / 16 * font.font_size_y;
         
-        var yi: u32 = 0;
+        const scale_x_i64 = @intCast(i64, scale_x);
+        const scale_y_i64 = @intCast(i64, scale_y);
+        
+        var yi: i64 = 0;
         while (yi < font.font_size_y) : (yi += 1) {
-            var xi: u32 = 0;
+            var xi: i64 = 0;
             while (xi < font.font_size_x) : (xi += 1) {
-                const tex_pos = ((fx + xi) +
-                                 (fy + yi) * font.texture.width) * 4;
+                const tex_pos = @intCast(usize, (fx + xi) + (fy + yi) * font.texture.width) * 4;
                 const color = font.texture.raw[tex_pos..][0..4];
                 
-                var sy: u32 = 0;
+                var sy: i64 = 0;
                 while (sy < scale_y) : (sy += 1) {
-                    var sx: u32 = 0;
+                    var sx: i64 = 0;
                     while (sx < scale_x) : (sx += 1) {
-                        const x_pos = x + xi * scale_x + sx;
-                        const y_pos = y + yi * scale_y + sy;
+                        const x_pos = x + xi * scale_x_i64 + sx;
+                        const y_pos = y + yi * scale_y_i64 + sy;
                         putPixelRGBA(b, x_pos, y_pos, color[0], color[1], color[2], color[3]);
                     }
                 }
@@ -350,22 +352,22 @@ pub const Buffer = struct {
     }
     
     /// draw a filled rectangle
-    pub fn fillRect(b: Buffer, x: i32, y: i32, w: u32, h: u32, color: Color) void {
+    pub fn fillRect(b: Buffer, x: i64, y: i64, w: u64, h: u64, color: Color) void {
         // Clamp values
-        const max_x = @intCast(i32, b.width);
-        const max_y = @intCast(i32, b.height);
+        const max_x = @intCast(i64, b.width);
+        const max_y = @intCast(i64, b.height);
         
         const x1 = std.math.clamp(x, 0, max_x);
         const y1 = std.math.clamp(y, 0, max_y);
         
-        const sx2 = @intCast(i32, w) + x;
-        const sy2 = @intCast(i32, h) + y;
+        const sx2 = @intCast(i64, w) + x;
+        const sy2 = @intCast(i64, h) + y;
         const x2 = std.math.clamp(sx2, 0, max_x);
         const y2 = std.math.clamp(sy2, 0, max_y);
         
-        var y_i: i32 = y1;
+        var y_i: i64 = y1;
         while (y_i < y2) : (y_i += 1) {
-            var x_i: i32 = x1;
+            var x_i: i64 = x1;
             while (x_i < x2) : (x_i += 1) {
                 putPixel(b, x_i, y_i, color);
             }
@@ -373,23 +375,23 @@ pub const Buffer = struct {
     }
     
     /// Draw a texture on the screen, the texture can be resized
-    pub fn drawTexture(b: Buffer, x: i32, y: i32, w: u32, h: u32, tex: Texture) void {
-        const max_x = @intCast(i32, b.width);
-        const max_y = @intCast(i32, b.height);
+    pub fn drawTexture(b: Buffer, x: i64, y: i64, w: u64, h: u64, tex: Texture) void {
+        const max_x = @intCast(i64, b.width);
+        const max_y = @intCast(i64, b.height);
         
-        const x1 = @intCast(u32, std.math.clamp(x, 0, max_x));
-        const y1 = @intCast(u32, std.math.clamp(y, 0, max_y));
+        const x1 = @intCast(u64, std.math.clamp(x, 0, max_x));
+        const y1 = @intCast(u64, std.math.clamp(y, 0, max_y));
         
-        const sx2 = @intCast(i32, w) + x;
-        const sy2 = @intCast(i32, h) + y;
-        const x2 = @intCast(u32, std.math.clamp(sx2, 0, max_x));
-        const y2 = @intCast(u32, std.math.clamp(sy2, 0, max_y));
+        const sx2 = @intCast(i64, w) + x;
+        const sy2 = @intCast(i64, h) + y;
+        const x2 = @intCast(u64, std.math.clamp(sx2, 0, max_x));
+        const y2 = @intCast(u64, std.math.clamp(sy2, 0, max_y));
         
-        var texture_y: u32 = @intCast(u32, @intCast(i32, y1) - y);
-        var screen_y: u32 = y1;
+        var texture_y: u64 = @intCast(u64, @intCast(i64, y1) - y);
+        var screen_y: u64 = y1;
         while (screen_y < y2) : (screen_y += 1) {
-            var texture_x: u32 = @intCast(u32, @intCast(i32, x1) - x);
-            var screen_x: u32 = x1;
+            var texture_x: u64 = @intCast(u64, @intCast(i64, x1) - x);
+            var screen_x: u64 = x1;
             while (screen_x < x2) : (screen_x += 1) {
                 // get pointer to pixel on the screen
                 const buffer_i = 4 * (screen_x + screen_y * b.width);
@@ -409,23 +411,23 @@ pub const Buffer = struct {
     }
     
     /// Blit texture on screen, does not change the size of the texture
-    pub fn blitTexture(b: Buffer, x: i32, y: i32, tex: Texture) void {
+    pub fn blitTexture(b: Buffer, x: i64, y: i64, tex: Texture) void {
         // Clamp values
-        const max_x = @intCast(i32, b.width);
-        const max_y = @intCast(i32, b.height);
+        const max_x = @intCast(i64, b.width);
+        const max_y = @intCast(i64, b.height);
         
         const x1 = @intCast(u32, std.math.clamp(x, 0, max_x));
         const y1 = @intCast(u32, std.math.clamp(y, 0, max_y));
         
-        const sx2 = @intCast(i32, tex.width) + x;
-        const sy2 = @intCast(i32, tex.height) + y;
+        const sx2 = @intCast(i64, tex.width) + x;
+        const sy2 = @intCast(i64, tex.height) + y;
         const x2 = @intCast(u32, std.math.clamp(sx2, 0, max_x));
         const y2 = @intCast(u32, std.math.clamp(sy2, 0, max_y));
         
-        var texture_y: u32 = if (y < y1) @intCast(u32, @intCast(i32, y1) - y) else 0;
+        var texture_y: u32 = if (y < y1) @intCast(u32, @intCast(i64, y1) - y) else 0;
         var screen_y: u32 = y1;
         
-        const texture_x: u32 = if (x < x1 and x2 > 0) @intCast(u32, @intCast(i32, x1) - x) else 0;
+        const texture_x: u32 = if (x < x1 and x2 > 0) @intCast(u32, @intCast(i64, x1) - x) else 0;
         while (screen_y < y2) : (screen_y += 1) {
             // get pointer to pixel on texture
             const tex_pixel_pos = 4 * (texture_x + texture_y * tex.width);
@@ -442,23 +444,23 @@ pub const Buffer = struct {
     }
     
     /// Blit texture on screen, does not change the size of the texture
-    pub fn blitTextureAlpha(b: Buffer, x: i32, y: i32, tex: Texture) void {
+    pub fn blitTextureAlpha(b: Buffer, x: i64, y: i64, tex: Texture) void {
         // Clamp values
-        const max_x = @intCast(i32, b.width);
-        const max_y = @intCast(i32, b.height);
+        const max_x = @intCast(i64, b.width);
+        const max_y = @intCast(i64, b.height);
         
         const x1 = @intCast(u32, std.math.clamp(x, 0, max_x));
         const y1 = @intCast(u32, std.math.clamp(y, 0, max_y));
         
-        const sx2 = @intCast(i32, tex.width) + x;
-        const sy2 = @intCast(i32, tex.height) + y;
+        const sx2 = @intCast(i64, tex.width) + x;
+        const sy2 = @intCast(i64, tex.height) + y;
         const x2 = @intCast(u32, std.math.clamp(sx2, 0, max_x));
         const y2 = @intCast(u32, std.math.clamp(sy2, 0, max_y));
         
-        var texture_y: u32 = if (y < y1) @intCast(u32, @intCast(i32, y1) - y) else 0;
+        var texture_y: u32 = if (y < y1) @intCast(u32, @intCast(i64, y1) - y) else 0;
         var screen_y: u32 = y1;
         
-        const texture_x: u32 = if (x < x1 and x2 > 0) @intCast(u32, @intCast(i32, x1) - x) else 0;
+        const texture_x: u32 = if (x < x1 and x2 > 0) @intCast(u32, @intCast(i64, x1) - x) else 0;
         while (screen_y < y2) : (screen_y += 1) {
             // get pointer to pixel on texture
             const tex_pixel_pos = 4 * (texture_x + texture_y * tex.width);
@@ -483,31 +485,31 @@ pub const Buffer = struct {
     }
     
     /// draw a hollow rectangle
-    pub fn drawRect(b: Buffer, x: i32, y: i32, w: u32, h: u32, color: Color) void {
-        const width = @intCast(i32, std.math.clamp(w, 0, b.width)) - x;
-        const height = @intCast(i32, std.math.clamp(h, 0, b.height)) - y;
+    pub fn drawRect(b: Buffer, x: i64, y: i64, w: u64, h: u64, color: Color) void {
+        const width = @intCast(i64, std.math.clamp(w, 0, b.width)) - x;
+        const height = @intCast(i64, std.math.clamp(h, 0, b.height)) - y;
         
-        const max_x = @intCast(i32, b.width);
-        const max_y = @intCast(i32, b.height);
+        const max_x = @intCast(i64, b.width);
+        const max_y = @intCast(i64, b.height);
         
         const x1 = std.math.clamp(x, 0, max_x);
         const y1 = std.math.clamp(y, 0, max_y);
         
-        const sx2 = @intCast(i32, w) + x;
-        const sy2 = @intCast(i32, h) + y;
+        const sx2 = @intCast(i64, w) + x;
+        const sy2 = @intCast(i64, h) + y;
         
         const x2 = std.math.clamp(sx2, 0, max_x);
         const y2 = std.math.clamp(sy2, 0, max_y);
         
         if (x2 == 0 or y2 == 0) return;
         
-        var xi: i32 = x1;
+        var xi: i64 = x1;
         while (xi < x2) : (xi += 1) {
             putPixel(b, xi, y1, color);
             putPixel(b, xi, y2 - 1, color);
         }
         
-        var yi: i32 = y1;
+        var yi: i64 = y1;
         while (yi < y2) : (yi += 1) {
             putPixel(b, x1, yi, color);
             putPixel(b, x2 - 1, yi, color);
@@ -515,7 +517,7 @@ pub const Buffer = struct {
     }
     
     /// draw a line with a width of 1 pixel
-    pub fn drawLine(b: Buffer, xa: i32, ya: i32, xb: i32, yb: i32, color: Color) void {
+    pub fn drawLine(b: Buffer, xa: i64, ya: i64, xb: i64, yb: i64, color: Color) void {
         const xr = std.math.max(xa, xb);
         const xl = std.math.min(xa, xb);
         
@@ -539,7 +541,7 @@ pub const Buffer = struct {
             }
             
             while (y <= yd) : (y += 1) {
-                putPixel(b, @floatToInt(i32, x), y, color);
+                putPixel(b, @floatToInt(i64, x), y, color);
                 x += dx;
             }
         } else {
@@ -556,14 +558,14 @@ pub const Buffer = struct {
             }
             
             while (x <= xr) : (x += 1) {
-                putPixel(b, x, @floatToInt(i32, y), color);
+                putPixel(b, x, @floatToInt(i64, y), color);
                 y += dy;
             }
         }
     }
     
     /// Draw a line with a width defined by line_width
-    pub fn drawLineWidth(b: Buffer, xa: i32, ya: i32, xb: i32, yb: i32, color: Color, line_width: u32) void {
+    pub fn drawLineWidth(b: Buffer, xa: i64, ya: i64, xb: i64, yb: i64, color: Color, line_width: u64) void {
         if (line_width == 1) {
             drawLine(b, xa, ya, xb, yb, color);
             return;
@@ -592,7 +594,7 @@ pub const Buffer = struct {
             }
             
             while (y <= yd) : (y += 1) {
-                fillCircle(b, @floatToInt(i32, x), y, line_width, color);
+                fillCircle(b, @floatToInt(i64, x), y, line_width, color);
                 x += dx;
             }
         } else {
@@ -609,7 +611,7 @@ pub const Buffer = struct {
             }
             
             while (x <= xr) : (x += 1) {
-                fillCircle(b, x, @floatToInt(i32, y), line_width / 2, color);
+                fillCircle(b, x, @floatToInt(i64, y), line_width / 2, color);
                 y += dy;
             }
         }
@@ -626,22 +628,22 @@ pub const Buffer = struct {
     }
     
     /// Draw a triangle
-    pub inline fn drawTriangle(b: Buffer, xa: i32, ya: i32, xb: i32, yb: i32, xc: i32, yc: i32, color: Color, line_width: u32) void {
+    pub inline fn drawTriangle(b: Buffer, xa: i64, ya: i64, xb: i64, yb: i64, xc: i64, yc: i64, color: Color, line_width: u64) void {
         drawLineWidth(b, xa, ya, xb, yb, color, line_width);
         drawLineWidth(b, xb, yb, xc, yc, color, line_width);
         drawLineWidth(b, xc, yc, xa, ya, color, line_width);
     }
     
     /// Draw a solid triangle
-    pub fn fillTriangle(b: Buffer, xa: i32, ya: i32, xb: i32, yb: i32, xc: i32, yc: i32, color: Color) void {
+    pub fn fillTriangle(b: Buffer, xa: i64, ya: i64, xb: i64, yb: i64, xc: i64, yc: i64, color: Color) void {
         const x_left = math.min(math.min(xa, xb), math.max(xc, 0));
-        const x_right = math.max(math.max(xa, xb), math.min(xc, @intCast(i32, b.width)));
+        const x_right = math.max(math.max(xa, xb), math.min(xc, @intCast(i64, b.width)));
         const y_up = math.min(math.min(ya, yb), math.max(yc, 0));
-        const y_down = math.max(math.max(ya, yb), math.min(yc, @intCast(i32, b.height)));
+        const y_down = math.max(math.max(ya, yb), math.min(yc, @intCast(i64, b.height)));
         
-        var y: i32 = y_up;
+        var y: i64 = y_up;
         while (y < y_down) : (y += 1) {
-            var x: i32 = x_left;
+            var x: i64 = x_left;
             while (x < x_right) : (x += 1) {
                 var w0 = edgeFunctionI(xb, yb, xc, yc, x, y);
                 var w1 = edgeFunctionI(xc, yc, xa, ya, x, y);
@@ -673,9 +675,9 @@ pub const Buffer = struct {
         const yc = screenToPixel(-triangle[2].pos.y, b.height);
         
         const x_left = math.max(math.min(math.min(xa, xb), xc), 0);
-        const x_right = math.min(math.max(math.max(xa, xb), xc), @intCast(i32, b.width - 1));
+        const x_right = math.min(math.max(math.max(xa, xb), xc), @intCast(i64, b.width - 1));
         const y_up = math.max(math.min(math.min(ya, yb), yc), 0);
-        const y_down = math.min(math.max(math.max(ya, yb), yc), @intCast(i32, b.height - 1));
+        const y_down = math.min(math.max(math.max(ya, yb), yc), @intCast(i64, b.height - 1));
         
         const w0_a = @intToFloat(f32, yc - yb);
         const w1_a = @intToFloat(f32, ya - yc);
@@ -690,7 +692,7 @@ pub const Buffer = struct {
         const zero_v = @splat(v_size, @as(f32, 0.0));
         const inc_v: std.meta.Vector(v_size, f32) = blk: {
             var v = @splat(v_size, @as(f32, 0.0));
-            var i: u32 = 0;
+            var i: u64 = 0;
             while (i < v_size) : (i += 1) v[i] = @intToFloat(f32, i);
             break :blk v;
         };
@@ -714,10 +716,10 @@ pub const Buffer = struct {
         const tex_width_v = @splat(v_size, @intToFloat(f32, texture.width));
         const tex_height_v = @splat(v_size, @intToFloat(f32, texture.height));
         
-        var y: i32 = y_up;
+        var y: i64 = y_up;
         while (y <= y_down) : (y += 1) {
-            var x: i32 = x_left;
-            const db_iy = y * @intCast(i32, b.width);
+            var x: i64 = x_left;
+            const db_iy = y * @intCast(i64, b.width);
             
             const w0_b = @intToFloat(f32, (y -% yb) *% (xc -% xb));
             const w1_b = @intToFloat(f32, (y -% yc) *% (xa -% xc));
@@ -763,7 +765,7 @@ pub const Buffer = struct {
                 w1_v /= w_sum;
                 w2_v /= w_sum;
                 
-                var db_i = @intCast(u32, x + db_iy);
+                var db_i = @intCast(u64, x + db_iy);
                 db_i = math.min(db_i, b.width * b.height - v_size);
                 
                 var depth_slice = b.depth[db_i..][0..v_size];
@@ -783,7 +785,7 @@ pub const Buffer = struct {
                 u_v *= tex_width_v;
                 v_v *= tex_height_v;
                 
-                var i: u32 = 0;
+                var i: u64 = 0;
                 while (i < v_size and x < b.width) : (i += 1) {
                     var w0 = w0_v[i];
                     var w1 = w1_v[i];
@@ -796,8 +798,8 @@ pub const Buffer = struct {
                             
                             var color = Color{};
                             
-                            const tex_u = @intCast(usize, @mod(@floatToInt(i32, u_v[i]), @intCast(i32, texture.width)));
-                            const tex_v = @intCast(usize, @mod(@floatToInt(i32, v_v[i]), @intCast(i32, texture.height)));
+                            const tex_u = @intCast(usize, @mod(@floatToInt(i64, u_v[i]), @intCast(i64, texture.width)));
+                            const tex_v = @intCast(usize, @mod(@floatToInt(i64, v_v[i]), @intCast(i64, texture.height)));
                             
                             const tex_pos = (tex_u + tex_v * texture.width) * 4;
                             var tpixel = texture.raw[tex_pos..][0..4].*;
@@ -806,7 +808,7 @@ pub const Buffer = struct {
                             tpixel[1] = @intCast(u8, tpixel[1] * face_lighting_i / 255);
                             tpixel[2] = @intCast(u8, tpixel[2] * face_lighting_i / 255);
                             
-                            const pixel_pos = @intCast(u32, x + y * @intCast(i32, b.width)) * 4;
+                            const pixel_pos = @intCast(u64, x + y * @intCast(i64, b.width)) * 4;
                             const pixel = b.screen[pixel_pos..][0..4];
                             
                             if (tpixel[3] > 0) {
@@ -829,7 +831,7 @@ pub const Buffer = struct {
             @intToFloat(f32, b.width);
         const proj_matrix = perspectiveMatrix(cam.near, cam.far, cam.fov, hw_ratio);
         
-        var index: u32 = 0;
+        var index: u64 = 0;
         main_loop: while (index < mesh.i.len - 2) : (index += 3) {
             const ia = mesh.i[index];
             const ib = mesh.i[index + 1];
@@ -839,7 +841,7 @@ pub const Buffer = struct {
             
             // World Trasform
             {
-                var i: u32 = 0;
+                var i: u64 = 0;
                 while (i < 3) : (i += 1) {
                     triangle[i].pos = Vec3_add(triangle[i].pos, transform.position);
                 }
@@ -867,12 +869,12 @@ pub const Buffer = struct {
             }
             
             var triangle_l: [8][3]Vertex = undefined;
-            var triangle_l_len: u32 = 1;
+            var triangle_l_len: u64 = 1;
             triangle_l[0] = triangle;
             
             // Camera Trasform
             {
-                var i: u32 = 0;
+                var i: u64 = 0;
                 while (i < 3) : (i += 1) {
                     triangle_l[0][i].pos = Vec3_sub(triangle_l[0][i].pos, cam.pos);
                     
@@ -899,9 +901,9 @@ pub const Buffer = struct {
             }
             
             // Projection
-            var j: u32 = 0;
+            var j: u64 = 0;
             while (j < triangle_l_len) : (j += 1) {
-                var i: u32 = 0;
+                var i: u64 = 0;
                 while (i < 3) : (i += 1) {
                     var new_t = Vec3{};
                     new_t.x = proj_matrix[0][0] * triangle_l[j][i].pos.x;
@@ -925,7 +927,7 @@ pub const Buffer = struct {
             // NOTE(Samuel): Cliping on the side
             // HACK(Samuel): On the side I'm only cliping triangles that are completly outside of the screen
             for (planes) |plane| {
-                var tl_index: u32 = 0;
+                var tl_index: u64 = 0;
                 const len = triangle_l_len;
                 while (tl_index < len) : (tl_index += 1) {
                     const cliping_result = clipTriangle(triangle_l[tl_index], plane);
@@ -941,7 +943,7 @@ pub const Buffer = struct {
             
             if (triangle_l_len == 0) continue :main_loop;
             
-            var tl_index: u32 = 0;
+            var tl_index: u64 = 0;
             while (tl_index < triangle_l_len) : (tl_index += 1) {
                 triangle = triangle_l[tl_index];
                 
@@ -1029,7 +1031,7 @@ pub fn cubeMesh(al: *Allocator) Mesh {
         .texture = undefined,
     };
     
-    var i: u32 = 0;
+    var i: u64 = 0;
     while (i < cube_v.len) : (i += 1) {
         cube_mesh.v[i] = cube_v[i];
     }
@@ -1051,7 +1053,7 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
     };
     
     // Count outside of the plane
-    var out_count: u32 = 0;
+    var out_count: u64 = 0;
     
     const t0_out = blk: {
         const plane_origin = Vec3_mul_F(plane.n, -plane.d);
@@ -1084,7 +1086,7 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
     };
     
     if (out_count == 1) {
-        var out_i: u32 = 0;
+        var out_i: u64 = 0;
         if (!t0_out) {
             out_i = 1;
             if (!t1_out) out_i = 2;
@@ -1125,7 +1127,7 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
     } else if (out_count == 2) {
         result.count = 1;
         
-        var in_i: u32 = 0;
+        var in_i: u64 = 0;
         if (t0_out) {
             in_i = 1;
             if (t1_out) in_i = 2;
@@ -1166,10 +1168,10 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
 
 
 /// Creates a mesh made with quads with a given size. vertex colors are random
-pub fn createQuadMesh(al: *Allocator, size_x: u32, size_y: u32, center_x: f32, center_y: f32, texture: Texture, texture_mode: TextureMode) Mesh {
+pub fn createQuadMesh(al: *Allocator, size_x: u64, size_y: u64, center_x: f32, center_y: f32, texture: Texture, texture_mode: TextureMode) Mesh {
     var result = Mesh{
         .v = al.alloc(Vertex, (size_x + 1) * (size_y + 1)) catch unreachable,
-        .i = al.alloc(u32, size_x * size_y * 6) catch unreachable,
+        .i = al.alloc(u64, size_x * size_y * 6) catch unreachable,
         .texture = texture,
     };
     
@@ -1192,18 +1194,18 @@ pub fn createQuadMesh(al: *Allocator, size_x: u32, size_y: u32, center_x: f32, c
         }
     } else if (texture_mode == .Tile) {
         for (result.v) |*v, i| {
-            const x_i = @intCast(u32, i % (size_x + 1));
-            const y_i = @intCast(u32, i / (size_x + 1));
+            const x_i = @intCast(u64, i % (size_x + 1));
+            const y_i = @intCast(u64, i / (size_x + 1));
             v.uv.x = @intToFloat(f32, x_i % 2);
             v.uv.y = @intToFloat(f32, y_i % 2);
         }
     }
     
     // Set indexes
-    var index: u32 = 0;
-    var y: u32 = 0;
+    var index: u64 = 0;
+    var y: u64 = 0;
     while (y < size_y) : (y += 1) {
-        var x: u32 = 0;
+        var x: u64 = 0;
         while (x < size_x) : (x += 1) {
             // first triangle
             var i = x + y * (size_x + 1);
