@@ -109,5 +109,7 @@ fn update(delta: f32) void {
     }
     draw.gb.drawBitmapFontFmt("{d:0.4}/{d:0.4}/{d}", .{ 1 / delta, delta, mov_speed }, 20, 20, 1, 1, font);
     
+    draw.gb.drawBitmapFont(draw.char_input_buffer[0..draw.char_input_len], 20, 40, 1, 1, font);
+    
 }
 

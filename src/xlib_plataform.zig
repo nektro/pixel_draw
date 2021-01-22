@@ -47,6 +47,9 @@ pub var keys_down = [_]bool{false} ** keymap.len;
 pub var keys_up = [_]bool{false} ** keymap.len;
 pub var keys_pressed = [_]bool{false} ** keymap.len;
 
+pub var char_input_buffer: [4096]u8 = undefined;
+pub var char_input_len: usize = 0;
+
 // =================
 
 pub fn plataformInit(
@@ -91,6 +94,31 @@ pub fn plataformInit(
     if (window == 0) return error.UnableToCreateWindow;
     if (c.XStoreName(display, window, "Hello") == 0) return error.ErrorInRenamingWindow;
     
+    // Init X input
+    if (false) {
+        const x_input_method = c.XOpenIM(display, null, 0, 0);
+        if (x_input_method == null) {
+            return error.InputMethodCouldNotBeOpened;
+        }
+        
+        var styles: ?*c.XIMStyles = null;
+        if (c.XGetIMValues(x_input_method, c.XNQueryInputStyle, &styles) == 0 or styles == null) {
+            return error.InputStylesCouldNotBeRetrived;
+        }
+        
+        var best_match_style: c.XIMStyle = 0;
+        var i: usize = 0;
+        while (i < styles.?.count_styles) : (i += 1) {
+            const this_style = styles.?.supported_styles[i];
+            if (this_style == (c.XIMPreeditNothing | c.XIMStatusNothing)) {
+                best_match_style = this_style;
+                break;
+            }
+        }
+        
+        _ = c.XFree(styles);
+    }
+    
     if (c.XMapWindow(display, window) == 0) return error.ErrorMappingTheWindow;
     if (c.XFlush(display) == 0) return error.ErrorFlushinTheDisplay;
     
@@ -103,18 +131,7 @@ pub fn plataformInit(
     const pixel_bytes = pixel_bits / 8;
     try draw.gb.allocate(main_allocator, draw.gb.width, draw.gb.height);
     
-    var x_window_buffer = c.XCreateImage(
-                                         display,
-                                         visual_info.visual,
-                                         @intCast(c_uint, visual_info.depth),
-                                         c.ZPixmap,
-                                         0,
-                                         draw.gb.screen.ptr,
-                                         draw.gb.width,
-                                         draw.gb.height,
-                                         pixel_bits,
-                                         0,
-                                         );
+    var x_window_buffer = c.XCreateImage(display, visual_info.visual, @intCast(c_uint, visual_info.depth), c.ZPixmap, 0, draw.gb.screen.ptr, draw.gb.width, draw.gb.height, pixel_bits, 0);
     
     var default_graphics_context = c.XDefaultGC(display, default_screen);
     
@@ -152,17 +169,7 @@ pub fn plataformInit(
             
             var root_return: c.Window = undefined;
             var win_return: c.Window = undefined;
-            _ = c.XQueryPointer(
-                                display,
-                                window,
-                                &root_return,
-                                &win_return,
-                                &root_x,
-                                &root_y,
-                                &win_x,
-                                &win_y,
-                                &button_mask,
-                                );
+            _ = c.XQueryPointer(display, window, &root_return, &win_return, &root_x, &root_y, &win_x, &win_y, &button_mask);
             
             // if (win_return == window) {
             mouse_pos_x = @intCast(i32, win_x);
@@ -201,6 +208,19 @@ pub fn plataformInit(
                 c.KeyPress => {
                     const e = @ptrCast(*c.XKeyPressedEvent, &event);
                     const key = c.XKeycodeToKeysym(display, @intCast(u8, e.keycode), 0);
+                    
+                    var char_buffer: [128]u8 = undefined;
+                    var status: c.XComposeStatus = undefined;
+                    char_buffer[0] = 0;
+                    const char_buffer_len = @intCast(usize, c.XLookupString(e, char_buffer[0..], char_buffer.len, null, &status));
+                    
+                    for (char_buffer[0 .. char_buffer_len]) |cr| {
+                        if (char_input_len >= char_input_buffer.len) break;
+                        
+                        char_input_buffer[char_input_len] = cr;
+                        char_input_len += 1;
+                    }
+                    
                     for (keys_down) |*it, i| {
                         if (keymap[i] == key) {
                             it.* = true;
