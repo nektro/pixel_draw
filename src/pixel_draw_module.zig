@@ -4,7 +4,7 @@ const assert = std.debug.assert;
 const print = std.debug.print;
 const Allocator = std.mem.Allocator;
 
-const util = @import("util.zig");
+pub const util = @import("util.zig");
 usingnamespace util;
 
 pub const vector_math = @import("vector_math.zig");

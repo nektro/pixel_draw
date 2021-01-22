@@ -200,9 +200,9 @@ pub fn plataformInit(
                 
                 c.KeyPress => {
                     const e = @ptrCast(*c.XKeyPressedEvent, &event);
-                    const key = e.keycode;
+                    const key = c.XKeycodeToKeysym(display, @intCast(u8, e.keycode), 0);
                     for (keys_down) |*it, i| {
-                        if (c.XKeysymToKeycode(display, keymap[i]) == key) {
+                        if (keymap[i] == key) {
                             it.* = true;
                             keys_pressed[i] = true;
                         }
@@ -211,9 +211,9 @@ pub fn plataformInit(
                 
                 c.KeyRelease => {
                     const e = @ptrCast(*c.XKeyPressedEvent, &event);
-                    const key = e.keycode;
+                    const key = c.XKeycodeToKeysym(display, @intCast(u8, e.keycode), 0);
                     for (keys_up) |*it, i| {
-                        if (c.XKeysymToKeycode(display, keymap[i]) == key) {
+                        if (keymap[i] == key) {
                             it.* = true;
                             keys_pressed[i] = false;
                         }
