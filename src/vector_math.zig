@@ -7,7 +7,7 @@ pub const Color = struct {
     g: f32 = 0.0,
     b: f32 = 0.0,
     a: f32 = 0.0,
-    
+
     pub inline fn c(r: f32, g: f32, b: f32, a: f32) Color {
         return Color{ .r = r, .g = g, .b = b, .a = a };
     }
@@ -16,7 +16,7 @@ pub const Color = struct {
 pub const Vec2 = struct {
     x: f32 = 0.0,
     y: f32 = 0.0,
-    
+
     pub inline fn c(x: f32, y: f32) Vec2 {
         return Vec2{ .x = x, .y = y };
     }
@@ -26,11 +26,11 @@ pub const Vec3 = struct {
     x: f32 = 0.0,
     y: f32 = 0.0,
     z: f32 = 0.0,
-    
+
     pub inline fn c(x: f32, y: f32, z: f32) Vec3 {
         return Vec3{ .x = x, .y = y, .z = z };
     }
-    
+
     pub inline fn neg(v: *Vec3) Vec3 {
         return Vec3{ .x = -v.x, .y = -v.y, .z = -v.z };
     }
@@ -41,7 +41,7 @@ pub const Vec4 = struct {
     y: f32 = 0.0,
     z: f32 = 0.0,
     w: f32 = 0.0,
-    
+
     pub inline fn c(x: f32, y: f32, z: f32, w: f32) Vec3 {
         return Vec3{ .x = x, .y = y, .z = z, .w = w };
     }
@@ -50,7 +50,7 @@ pub const Vec4 = struct {
 pub const Plane = struct {
     n: Vec3 = .{},
     d: f32 = .{},
-    
+
     pub inline fn c(nx: f32, ny: f32, nz: f32, d: f32) Plane {
         return Plane{
             .n = Vec3_normalize(Vec3.c(nx, ny, nz)),
@@ -63,7 +63,7 @@ pub const Vertex = struct {
     pos: Vec3 = .{},
     uv: Vec2 = .{},
     w: f32 = 1.0,
-    
+
     pub inline fn c(pos: Vec3, uv: Vec2) Vertex {
         return Vertex{
             .pos = pos,
@@ -195,7 +195,7 @@ pub fn Vec3_normalize(v: Vec3) Vec3 {
 
 pub fn lineIntersectPlane(l_origin: Vec3, l_dir: Vec3, plane: Plane) ?Vec3 {
     var result: ?Vec3 = null;
-    
+
     const denom = Vec3_dot(plane.n, l_dir);
     const epslon = 0.001;
     if (denom > epslon or denom < -epslon) {
@@ -203,7 +203,7 @@ pub fn lineIntersectPlane(l_origin: Vec3, l_dir: Vec3, plane: Plane) ?Vec3 {
         const hit_pos = Vec3_add(l_origin, Vec3_mul_F(l_dir, t));
         result = hit_pos;
     }
-    
+
     return result;
 }
 
@@ -235,14 +235,14 @@ pub fn interpolateVertexAttr(va: Vertex, vb: Vertex, vc: Vertex, pos: Vec3) Vert
     var result = Vertex{
         .pos = pos,
     };
-    
+
     const area = edgeFunction(va.pos.x, va.pos.y, vb.pos.x, vb.pos.y, vc.pos.x, vc.pos.y);
-    
+
     var w0 = edgeFunction(vb.pos.x, vb.pos.y, vc.pos.x, vc.pos.y, pos.x, pos.y) / area;
-    
+
     var w1 = edgeFunction(vc.pos.x, vc.pos.y, va.pos.x, va.pos.y, pos.x, pos.y) / area;
     var w2 = 1.0 - w0 - w1;
-    
+
     if (false) {
         w0 /= va.w;
         w1 /= va.w;
@@ -252,12 +252,12 @@ pub fn interpolateVertexAttr(va: Vertex, vb: Vertex, vc: Vertex, pos: Vec3) Vert
         w1 /= w_sum;
         w2 /= w_sum;
     }
-    
+
     result.color.r = w0 * va.color.r + w1 * vb.color.r + w2 * vc.color.r;
     result.color.g = w0 * va.color.g + w1 * vb.color.g + w2 * vc.color.g;
     result.color.b = w0 * va.color.b + w1 * vb.color.b + w2 * vc.color.b;
     result.color.a = w0 * va.color.a + w1 * vb.color.a + w2 * vc.color.a;
-    
+
     return result;
 }
 
@@ -266,7 +266,7 @@ pub fn baricentricCoordinates(a: anytype, b: anytype, c: anytype, p: anytype) Ve
     if (@TypeOf(b) != Vec3 and @TypeOf(b) != Vec2) @compileError("");
     if (@TypeOf(c) != Vec3 and @TypeOf(c) != Vec2) @compileError("");
     if (@TypeOf(p) != Vec3 and @TypeOf(p) != Vec2) @compileError("");
-    
+
     const area = edgeFunction(a.x, a.y, b.x, b.y, c.x, c.y);
     var w0 = edgeFunction(b.x, b.y, c.x, c.y, p.x, p.y) / area;
     var w1 = edgeFunction(c.x, c.y, a.x, a.y, p.x, p.y) / area;

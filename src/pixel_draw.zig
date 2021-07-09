@@ -1,8 +1,7 @@
 usingnamespace if (@import("builtin").os.tag == .windows)
-@import("win32_plataform.zig")
+    @import("win32_plataform.zig")
 else
-@import("xlib_plataform.zig");
-
+    @import("xlib_plataform.zig");
 
 // ===== Input =====
 const MouseButtons = enum(u32) {

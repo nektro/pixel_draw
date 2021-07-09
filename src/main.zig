@@ -22,9 +22,9 @@ var test_chunk: voxel.Chunk = undefined;
 pub fn main() anyerror!void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     //defer _ = gpa.deinit(); // NOTE(Samuel): Dont want leak test
-    
+
     main_allocator = &gpa.allocator;
-    
+
     try draw.init(&gpa.allocator, 1280, 720, start, update);
     end();
 }
@@ -32,16 +32,16 @@ pub fn main() anyerror!void {
 fn start() void {
     voxel.initBlockList(main_allocator) catch @panic("Unable to init block list");
     test_chunk = voxel.Chunk.init();
-    
+
     font = .{
         .texture = draw.textureFromTgaData(main_allocator, @embedFile("../assets/font.tga")) catch unreachable,
         .font_size_x = 12,
         .font_size_y = 16,
         .character_spacing = 11,
     };
-    
+
     potato = draw.textureFromTgaData(main_allocator, @embedFile("../assets/potato.tga")) catch unreachable;
-    
+
     cube_mesh = draw.cubeMesh(main_allocator);
     cube_mesh.texture = potato;
 }
@@ -58,35 +58,34 @@ var cam: draw.Camera3D = .{ .pos = .{ .z = 20.0 }, .far = 100000 };
 var mov_speed: f32 = 2.0;
 
 fn update(delta: f32) void {
-    
     if (draw.keyPressed(.up)) cam.rotation.x += delta * 2;
     if (draw.keyPressed(.down)) cam.rotation.x -= delta * 2;
     if (draw.keyPressed(.right)) cam.rotation.y += delta * 2;
     if (draw.keyPressed(.left)) cam.rotation.y -= delta * 2;
-    
+
     if (draw.keyPressed(._1)) cam.pos.y += delta * mov_speed;
     if (draw.keyPressed(._2)) cam.pos.y -= delta * mov_speed;
-    
+
     if (draw.keyDown(._0)) mov_speed += 2.0;
     if (draw.keyDown(._9)) mov_speed -= 2.0;
-    
+
     var camera_forward = eulerAnglesToDirVector(cam.rotation);
     camera_forward.y = 0;
     var camera_right = eulerAnglesToDirVector(Vec3.c(cam.rotation.x, cam.rotation.y - 3.1415926535 * 0.5, cam.rotation.z));
     camera_right.y = 0;
-    
+
     const input_z = draw.keyStrengh(.s) - draw.keyStrengh(.w);
     const input_x = draw.keyStrengh(.d) - draw.keyStrengh(.a);
-    
+
     camera_forward = Vec3_mul_F(camera_forward, input_z);
     camera_right = Vec3_mul_F(camera_right, input_x);
-    
+
     var camera_delta_p = Vec3_add(camera_forward, camera_right);
     camera_delta_p = Vec3_normalize(camera_delta_p);
     camera_delta_p = Vec3_mul_F(camera_delta_p, delta * mov_speed);
-    
+
     cam.pos = Vec3_add(camera_delta_p, cam.pos);
-    
+
     draw.gb.fillScreenWithRGBColor(50, 50, 200);
     {
         for (test_chunk.block_data) |*it, i| {
@@ -94,7 +93,7 @@ fn update(delta: f32) void {
                 var x: u32 = 0;
                 var y: u32 = 0;
                 var z: u32 = 0;
-                
+
                 voxel.Chunk.posFromI(i, &x, &y, &z);
                 const transform = Transform{
                     .position = .{
@@ -108,8 +107,6 @@ fn update(delta: f32) void {
         }
     }
     draw.gb.drawBitmapFontFmt("{d:0.4}/{d:0.4}/{d}", .{ 1 / delta, delta, mov_speed }, 20, 20, 1, 1, font);
-    
-    draw.gb.drawBitmapFont(draw.char_input_buffer[0..draw.char_input_len], 20, 40, 1, 1, font);
-    
-}
 
+    draw.gb.drawBitmapFont(draw.char_input_buffer[0..draw.char_input_len], 20, 40, 1, 1, font);
+}
