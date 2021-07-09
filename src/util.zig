@@ -35,7 +35,7 @@ pub fn writeIntToFileOnPos(file: std.fs.File, n: anytype, pos: u64) !void {
 pub fn writeFixStrToFile(file: std.fs.File, comptime capacity: u32, str: FixedSizeString(capacity)) !void {
     if (capacity < std.math.maxInt(u32)) {
         try writeIntToFile(file, @intCast(u8, str.len));
-    } else if (capacity < std.math.maxInt(u16)){
+    } else if (capacity < std.math.maxInt(u16)) {
         try writeIntToFile(file, @intCast(u16, str.len));
     } else if (capacity < std.math.maxInt(u32)) {
         try writeIntToFile(file, @intCast(u32, str.len));
@@ -47,11 +47,11 @@ pub fn writeFixStrToFile(file: std.fs.File, comptime capacity: u32, str: FixedSi
 
 pub fn readFixStrToFile(file: std.fs.File, comptime capacity: u32) !FixedSizeString(capacity) {
     var buff = [_]u8{0} ** capacity;
-    
+
     var len: u64 = 0;
     if (capacity < std.math.maxInt(u32)) {
         len = try readIntFromFile(u8, file);
-    } else if (capacity < std.math.maxInt(u16)){
+    } else if (capacity < std.math.maxInt(u16)) {
         len = try readIntFromFile(u16, file);
     } else if (capacity < std.math.maxInt(u32)) {
         len = try readIntFromFile(u32, file);
@@ -61,13 +61,13 @@ pub fn readFixStrToFile(file: std.fs.File, comptime capacity: u32) !FixedSizeStr
     if (len > capacity) return error.StringToBig;
     
     const s = try file.readAll(buff[0 .. len]);
-    return createFixedString(capacity, buff[0 .. len]);
+    return createFixedString(capacity, buff[0..len]);
 }
 
 pub fn swap(a: anytype, b: anytype) void {
     comptime if (@TypeOf(a) != @TypeOf(b))
         @compileError("Trying to swap diferent types\n");
-    
+
     var tmp = a.*;
     a.* = b.*;
     b.* = tmp;
@@ -76,17 +76,14 @@ pub fn swap(a: anytype, b: anytype) void {
 pub const clamp = std.math.clamp;
 
 // #TODO(samuel): Change to use only one sort function
-pub fn quickSort(comptime T: type, array: []T,
-                 lesst_func: fn (a: T, b: T) bool,
-                 greatt_func: fn (a: T, b: T) bool) void
-{
+pub fn quickSort(comptime T: type, array: []T, lesst_func: fn (a: T, b: T) bool, greatt_func: fn (a: T, b: T) bool) void {
     var i: isize = 0;
     var j: isize = @intCast(isize, array.len - 1);
     var pivo = array[array.len / 2];
     while (i <= j) {
         while (lesst_func(array[@intCast(usize, i)], pivo)) i += 1;
         while (greatt_func(array[@intCast(usize, j)], pivo)) j -= 1;
-        
+
         if (i <= j) {
             swap(&array[@intCast(usize, i)], &array[@intCast(usize, j)]);
             i += 1;
@@ -118,11 +115,11 @@ pub fn fixedStringAppend(comptime size: usize, fstr: *FixedSizeString(size), ast
     if (size - fstr.len < astr.len) {
         return error.CapacityFull;
     }
-    
-    for (fstr.data[fstr.len .. ][0 .. astr.len]) |*it, i| {
+
+    for (fstr.data[fstr.len..][0..astr.len]) |*it, i| {
         it.* = astr[i];
     }
-    
+
     fstr.len += astr.len;
 }
 
@@ -148,19 +145,19 @@ pub fn createFixedString(comptime size: usize, str: []const u8) FixedSizeString(
 /// return the current line and advances the buffer to the next
 pub fn nextLineSlice(slice: *[]u8) []u8 {
     if (slice.len == 0) return slice.*;
-    
+
     var i: usize = 0;
     while (i < slice.len and slice.*[i] != '\n') {
         i += 1;
     }
-    
+
     var result = slice.*[0..i];
-    
+
     if (i > 0 and slice.*[i - 1] == '\r') {
         result.len -= 1;
     }
     slice.* = slice.*[i + 1 ..];
-    
+
     return result;
 }
 
@@ -185,12 +182,12 @@ pub fn removeTrailingSpaces(slice: *[]u8) void {
 /// Return the token and advances the buffer
 pub fn getToken(slice: *[]u8, separator: u8) []u8 {
     if (slice.len == 0) return slice.*;
-    
+
     var i: usize = 0;
     while (i < slice.len and slice.*[i] != separator) {
         i += 1;
     }
-    
+
     var result = slice.*[0..i];
     if (i < slice.len) {
         slice.* = slice.*[i + 1 ..];
@@ -223,12 +220,12 @@ pub inline fn strCmp(a: []const u8, b: []const u8) bool {
 /// Compares two FixedSizeString of any size
 pub fn fixStrCmp(a: anytype, b: anytype) bool {
     if (a.len != b.len) return false;
-    
+
     var index: usize = 0;
     while (index > a.len) : (index += 1) {
         if (a.data[index] != b.data[index]) return false;
     }
-    
+
     return true;
 }
 
@@ -248,35 +245,35 @@ pub fn StaticList(comptime T: type, comptime size: u64, zero_value: T) type {
         data: [size]T = [_]T{zero_value} ** size,
         list: []T = undefined,
         len: u64 = 0,
-        
+
         const Self = @This();
-        
+
         pub fn push(l: *Self, value: T) !void {
             if (l.len >= l.data.len) return error.ListIsFull;
             l.data[l.len] = value;
             l.len += 1;
-            l.list = l.data[0 .. l.len];
+            l.list = l.data[0..l.len];
         }
-        
+
         pub fn pop(l: *Self) T {
             if (l.len == 0) return zero_value;
             l.len -= 1;
-            l.list = l.data[0 .. l.len];
+            l.list = l.data[0..l.len];
             return l.data[len];
         }
-        
+
         pub fn remove(l: *Self, pos: usize) T {
             if (l.len == 0) return zero_value;
             if (pos >= l.len) return zero_value;
-            
+
             const result = l.data[pos];
-            
+
             var i: usize = pos;
             while (i < l.len - 1) {
                 l.data[i] = l.data[i + 1];
             }
-            
-            l.list = l.data[0 .. l.len];
+
+            l.list = l.data[0..l.len];
             return result;
         }
     };
