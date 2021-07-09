@@ -59,8 +59,9 @@ pub fn readFixStrToFile(file: std.fs.File, comptime capacity: u32) !FixedSizeStr
         len = try readIntFromFile(u64, file);
     }
     if (len > capacity) return error.StringToBig;
-    
-    const s = try file.readAll(buff[0 .. len]);
+
+    const s = try file.readAll(buff[0..len]);
+    _ = s;
     return createFixedString(capacity, buff[0..len]);
 }
 

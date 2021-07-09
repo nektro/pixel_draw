@@ -316,10 +316,10 @@ pub const Buffer = struct {
     /// Draw a text on the screen
     pub fn drawBitmapFont(b: Buffer, text: []const u8, x: i64, y: i64, scale_x: u64, scale_y: u64, font: BitmapFont) void {
         for (text) |t, i| {
-            const char_index: u64 = t;
-            const fx = char_index % 16 * font.font_size_x;
-            const fy = char_index / 16 * font.font_size_y;
-            
+            // const char_index: u64 = t;
+            // const fx = char_index % 16 * font.font_size_x;
+            // const fy = char_index / 16 * font.font_size_y;
+
             const x_pos = x + @intCast(i64, i * scale_x * font.character_spacing);
             drawBitmapChar(b, t, x_pos, y, scale_x, scale_y, font);
         }
@@ -488,12 +488,12 @@ pub const Buffer = struct {
 
     /// draw a hollow rectangle
     pub fn drawRect(b: Buffer, x: i64, y: i64, w: u64, h: u64, color: Color) void {
-        const width = @intCast(i64, std.math.clamp(w, 0, b.width)) - x;
-        const height = @intCast(i64, std.math.clamp(h, 0, b.height)) - y;
-        
+        // const width = @intCast(i64, std.math.clamp(w, 0, b.width)) - x;
+        // const height = @intCast(i64, std.math.clamp(h, 0, b.height)) - y;
+
         const max_x = @intCast(i64, b.width);
-        const max_y = @intCast(i64, b.height);
-        
+        // const max_y = @intCast(i64, b.height);
+
         const x1 = std.math.clamp(x, 0, max_x);
         const y1 = std.math.clamp(y, 0, max_y);
 
@@ -698,8 +698,7 @@ pub const Buffer = struct {
             while (i < v_size) : (i += 1) v[i] = @intToFloat(f32, i);
             break :blk v;
         };
-        const false_v = @splat(v_size, @as(bool, false));
-        
+        // const false_v = @splat(v_size, @as(bool, false));
 
         const xb_v = @splat(v_size, @intToFloat(f32, xb));
         const xc_v = @splat(v_size, @intToFloat(f32, xc));
@@ -790,17 +789,15 @@ pub const Buffer = struct {
 
                 var i: u64 = 0;
                 while (i < v_size and x < b.width) : (i += 1) {
-                    var w0 = w0_v[i];
-                    var w1 = w1_v[i];
-                    var w2 = w2_v[i];
-                    
+                    // var w0 = w0_v[i];
+                    // var w1 = w1_v[i];
+                    // var w2 = w2_v[i];
+
                     if (!(w0_cmp_v[i] or w1_cmp_v[i] or w2_cmp_v[i])) {
                         const z = z_v[i];
                         if (!z_mask_v[i]) {
                             depth_slice[i] = z;
-                            
-                            var color = Color{};
-                            
+
                             const tex_u = @intCast(usize, @mod(@floatToInt(i64, u_v[i]), @intCast(i64, texture.width)));
                             const tex_v = @intCast(usize, @mod(@floatToInt(i64, v_v[i]), @intCast(i64, texture.height)));
 
@@ -950,9 +947,9 @@ pub const Buffer = struct {
 
                 switch (mode) {
                     .Points, .Lines => {
-                        const pixel_size_y = 1.0 / @intToFloat(f32, b.height);
-                        const pixel_size_x = 1.0 / @intToFloat(f32, b.width);
-                        
+                        // const pixel_size_y = 1.0 / @intToFloat(f32, b.height);
+                        // const pixel_size_x = 1.0 / @intToFloat(f32, b.width);
+
                         const xa = screenToPixel(triangle[0].pos.x, b.width);
                         const xb = screenToPixel(triangle[1].pos.x, b.width);
                         const xc = screenToPixel(triangle[2].pos.x, b.width);
@@ -1073,17 +1070,17 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
         }
         break :blk false;
     };
-    
-    const t2_out = blk: {
-        const plane_origin = Vec3_mul_F(plane.n, -plane.d);
-        const d = Vec3_dot(plane.n, Vec3_sub(triangle[2].pos, plane_origin));
-        if (d < 0.0) {
-            out_count += 1;
-            break :blk true;
-        }
-        break :blk false;
-    };
-    
+
+    // const t2_out = blk: {
+    //     const plane_origin = Vec3_mul_F(plane.n, -plane.d);
+    //     const d = Vec3_dot(plane.n, Vec3_sub(triangle[2].pos, plane_origin));
+    //     if (d < 0.0) {
+    //         out_count += 1;
+    //         break :blk true;
+    //     }
+    //     break :blk false;
+    // };
+
     if (out_count == 1) {
         var out_i: u64 = 0;
         if (!t0_out) {
@@ -1186,7 +1183,7 @@ pub fn createQuadMesh(al: *Allocator, size_x: u64, size_y: u64, center_x: f32, c
     }
 
     if (texture_mode == .Strech) {
-        for (result.v) |*v, i| {
+        for (result.v) |*v| {
             v.uv.x = (v.pos.x + center_x) / @intToFloat(f32, size_x);
             v.uv.y = 1.0 - (v.pos.y + center_y) / @intToFloat(f32, size_y);
         }
