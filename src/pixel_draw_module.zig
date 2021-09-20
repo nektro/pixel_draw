@@ -5,10 +5,14 @@ const print = std.debug.print;
 const Allocator = std.mem.Allocator;
 
 pub const util = @import("util.zig");
-usingnamespace util;
 
 pub const vector_math = @import("vector_math.zig");
-usingnamespace vector_math;
+const Color = vector_math.Color;
+const Vertex = vector_math.Vertex;
+const Vec3 = vector_math.Vec3;
+const Transform = vector_math.Transform;
+const Vec2 = vector_math.Vec2;
+const Plane = vector_math.Plane;
 
 const BmpHeader = packed struct {
     file_type: u16,
@@ -492,7 +496,7 @@ pub const Buffer = struct {
         // const height = @intCast(i64, std.math.clamp(h, 0, b.height)) - y;
 
         const max_x = @intCast(i64, b.width);
-        // const max_y = @intCast(i64, b.height);
+        const max_y = @intCast(i64, b.height);
 
         const x1 = std.math.clamp(x, 0, max_x);
         const y1 = std.math.clamp(y, 0, max_y);
@@ -647,9 +651,9 @@ pub const Buffer = struct {
         while (y < y_down) : (y += 1) {
             var x: i64 = x_left;
             while (x < x_right) : (x += 1) {
-                var w0 = edgeFunctionI(xb, yb, xc, yc, x, y);
-                var w1 = edgeFunctionI(xc, yc, xa, ya, x, y);
-                var w2 = edgeFunctionI(xa, ya, xb, yb, x, y);
+                var w0 = vector_math.edgeFunctionI(xb, yb, xc, yc, x, y);
+                var w1 = vector_math.edgeFunctionI(xc, yc, xa, ya, x, y);
+                var w2 = vector_math.edgeFunctionI(xa, ya, xb, yb, x, y);
 
                 if (w0 >= 0 and w1 >= 0 and w2 >= 0) {
                     putPixel(b, x, y, color);
@@ -683,7 +687,7 @@ pub const Buffer = struct {
 
         const w0_a = @intToFloat(f32, yc - yb);
         const w1_a = @intToFloat(f32, ya - yc);
-        const area = @intToFloat(f32, edgeFunctionI(xa, ya, xb, yb, xc, yc));
+        const area = @intToFloat(f32, util.edgeFunctionI(xa, ya, xb, yb, xc, yc));
 
         if (area < 0.0001 and area > -0.0001) return;
 
@@ -828,7 +832,7 @@ pub const Buffer = struct {
     pub fn drawMesh(b: Buffer, mesh: Mesh, mode: RasterMode, cam: Camera3D, transform: Transform) void {
         const hw_ratio = @intToFloat(f32, b.height) /
             @intToFloat(f32, b.width);
-        const proj_matrix = perspectiveMatrix(cam.near, cam.far, cam.fov, hw_ratio);
+        const proj_matrix = vector_math.perspectiveMatrix(cam.near, cam.far, cam.fov, hw_ratio);
 
         var index: u64 = 0;
         main_loop: while (index < mesh.i.len - 2) : (index += 3) {
@@ -842,27 +846,27 @@ pub const Buffer = struct {
             {
                 var i: u64 = 0;
                 while (i < 3) : (i += 1) {
-                    triangle[i].pos = Vec3_add(triangle[i].pos, transform.position);
+                    triangle[i].pos = vector_math.Vec3_add(triangle[i].pos, transform.position);
                 }
             }
 
             // Calculate normal
             var n = Vec3{};
             {
-                const t1 = Vec3_sub(triangle[1].pos, triangle[0].pos);
-                const t2 = Vec3_sub(triangle[2].pos, triangle[0].pos);
-                n = Vec3_normalize(Vec3_cross(t1, t2));
+                const t1 = vector_math.Vec3_sub(triangle[1].pos, triangle[0].pos);
+                const t2 = vector_math.Vec3_sub(triangle[2].pos, triangle[0].pos);
+                n = vector_math.Vec3_normalize(vector_math.Vec3_cross(t1, t2));
             }
 
-            const face_normal_dir = Vec3_dot(n, Vec3_sub(triangle[0].pos, cam.pos));
+            const face_normal_dir = vector_math.Vec3_dot(n, vector_math.Vec3_sub(triangle[0].pos, cam.pos));
             if (face_normal_dir > 0.0) continue;
 
             // Lighting
             var face_lighting: f32 = 1.0;
             {
-                var ld = Vec3_normalize(Vec3.c(0.5, -2.0, 1.0));
+                var ld = vector_math.Vec3_normalize(Vec3.c(0.5, -2.0, 1.0));
 
-                face_lighting = Vec3_dot(ld, n.neg());
+                face_lighting = vector_math.Vec3_dot(ld, n.neg());
                 if (face_lighting < 0.1) face_lighting = 0.1;
             }
 
@@ -874,11 +878,11 @@ pub const Buffer = struct {
             {
                 var i: u64 = 0;
                 while (i < 3) : (i += 1) {
-                    triangle_l[0][i].pos = Vec3_sub(triangle_l[0][i].pos, cam.pos);
+                    triangle_l[0][i].pos = vector_math.Vec3_sub(triangle_l[0][i].pos, cam.pos);
 
-                    triangle_l[0][i].pos = rotateVectorOnY(triangle_l[0][i].pos, cam.rotation.y);
+                    triangle_l[0][i].pos = vector_math.rotateVectorOnY(triangle_l[0][i].pos, cam.rotation.y);
 
-                    triangle_l[0][i].pos = rotateVectorOnX(triangle_l[0][i].pos, cam.rotation.x);
+                    triangle_l[0][i].pos = vector_math.rotateVectorOnX(triangle_l[0][i].pos, cam.rotation.x);
                 }
             }
 
@@ -910,7 +914,7 @@ pub const Buffer = struct {
                     const new_w = proj_matrix[3][2] * triangle_l[j][i].pos.z + proj_matrix[3][3];
                     triangle_l[j][i].w = new_w;
                     //std.debug.print("w = {d:0.4}\n", .{new_w});
-                    triangle_l[j][i].pos = Vec3_div_F(new_t, new_w);
+                    triangle_l[j][i].pos = vector_math.Vec3_div_F(new_t, new_w);
                 }
             }
 
@@ -1052,8 +1056,8 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
     var out_count: u64 = 0;
 
     const t0_out = blk: {
-        const plane_origin = Vec3_mul_F(plane.n, -plane.d);
-        const d = Vec3_dot(plane.n, Vec3_sub(triangle[0].pos, plane_origin));
+        const plane_origin = vector_math.Vec3_mul_F(plane.n, -plane.d);
+        const d = vector_math.Vec3_dot(plane.n, vector_math.Vec3_sub(triangle[0].pos, plane_origin));
         if (d < 0.0) {
             out_count += 1;
             break :blk true;
@@ -1062,8 +1066,8 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
     };
 
     const t1_out = blk: {
-        const plane_origin = Vec3_mul_F(plane.n, -plane.d);
-        const d = Vec3_dot(plane.n, Vec3_sub(triangle[1].pos, plane_origin));
+        const plane_origin = vector_math.Vec3_mul_F(plane.n, -plane.d);
+        const d = vector_math.Vec3_dot(plane.n, vector_math.Vec3_sub(triangle[1].pos, plane_origin));
         if (d < 0.0) {
             out_count += 1;
             break :blk true;
@@ -1072,8 +1076,8 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
     };
 
     // const t2_out = blk: {
-    //     const plane_origin = Vec3_mul_F(plane.n, -plane.d);
-    //     const d = Vec3_dot(plane.n, Vec3_sub(triangle[2].pos, plane_origin));
+    //     const plane_origin = vector_math.Vec3_mul_F(plane.n, -plane.d);
+    //     const d = vector_math.Vec3_dot(plane.n, vector_math.Vec3_sub(triangle[2].pos, plane_origin));
     //     if (d < 0.0) {
     //         out_count += 1;
     //         break :blk true;
@@ -1093,19 +1097,19 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
         var t1: f32 = 0.0;
         var t2: f32 = 0.0;
 
-        const pos1 = lineIntersectPlaneT(triangle[in_i1].pos, triangle[out_i].pos, plane, &t1);
-        const pos2 = lineIntersectPlaneT(triangle[in_i2].pos, triangle[out_i].pos, plane, &t2);
-        //const color1 = Color_lerp(triangle[in_i1].color, triangle[out_i].color, t1);
-        //const color2 = Color_lerp(triangle[in_i2].color, triangle[out_i].color, t2);
+        const pos1 = vector_math.lineIntersectPlaneT(triangle[in_i1].pos, triangle[out_i].pos, plane, &t1);
+        const pos2 = vector_math.lineIntersectPlaneT(triangle[in_i2].pos, triangle[out_i].pos, plane, &t2);
+        //const color1 = vector_math.Color_lerp(triangle[in_i1].color, triangle[out_i].color, t1);
+        //const color2 = vector_math.Color_lerp(triangle[in_i2].color, triangle[out_i].color, t2);
 
         var uv1 = Vec2{};
         var uv2 = Vec2{};
 
-        uv1.x = lerp(triangle[in_i1].uv.x, triangle[out_i].uv.x, t1);
-        uv1.y = lerp(triangle[in_i1].uv.y, triangle[out_i].uv.y, t1);
+        uv1.x = vector_math.lerp(triangle[in_i1].uv.x, triangle[out_i].uv.x, t1);
+        uv1.y = vector_math.lerp(triangle[in_i1].uv.y, triangle[out_i].uv.y, t1);
 
-        uv2.x = lerp(triangle[in_i2].uv.x, triangle[out_i].uv.x, t2);
-        uv2.y = lerp(triangle[in_i2].uv.y, triangle[out_i].uv.y, t2);
+        uv2.x = vector_math.lerp(triangle[in_i2].uv.x, triangle[out_i].uv.x, t2);
+        uv2.y = vector_math.lerp(triangle[in_i2].uv.y, triangle[out_i].uv.y, t2);
 
         //result.triangle0[out_i].color = color1;
         //result.triangle1[in_i1].color = color1;
@@ -1133,19 +1137,19 @@ pub fn clipTriangle(triangle: [3]Vertex, plane: Plane) ClipTriangleReturn {
 
         var t1: f32 = 0.0;
         var t2: f32 = 0.0;
-        const pos1 = lineIntersectPlaneT(triangle[out_i1].pos, triangle[in_i].pos, plane, &t1);
-        const pos2 = lineIntersectPlaneT(triangle[out_i2].pos, triangle[in_i].pos, plane, &t2);
-        //const color1 = Color_lerp(triangle[out_i1].color, triangle[in_i].color, t1);
-        //const color2 = Color_lerp(triangle[out_i2].color, triangle[in_i].color, t2);
+        const pos1 = vector_math.lineIntersectPlaneT(triangle[out_i1].pos, triangle[in_i].pos, plane, &t1);
+        const pos2 = vector_math.lineIntersectPlaneT(triangle[out_i2].pos, triangle[in_i].pos, plane, &t2);
+        //const color1 = vector_math.Color_lerp(triangle[out_i1].color, triangle[in_i].color, t1);
+        //const color2 = vector_math.Color_lerp(triangle[out_i2].color, triangle[in_i].color, t2);
 
         var uv1 = Vec2{};
         var uv2 = Vec2{};
 
-        uv1.x = lerp(triangle[out_i1].uv.x, triangle[in_i].uv.x, t1);
-        uv1.y = lerp(triangle[out_i1].uv.y, triangle[in_i].uv.y, t1);
+        uv1.x = vector_math.lerp(triangle[out_i1].uv.x, triangle[in_i].uv.x, t1);
+        uv1.y = vector_math.lerp(triangle[out_i1].uv.y, triangle[in_i].uv.y, t1);
 
-        uv2.x = lerp(triangle[out_i2].uv.x, triangle[in_i].uv.x, t2);
-        uv2.y = lerp(triangle[out_i2].uv.y, triangle[in_i].uv.y, t2);
+        uv2.x = vector_math.lerp(triangle[out_i2].uv.x, triangle[in_i].uv.x, t2);
+        uv2.y = vector_math.lerp(triangle[out_i2].uv.y, triangle[in_i].uv.y, t2);
 
         //result.triangle0[out_i1].color = color1;
         //result.triangle0[out_i2].color = color2;

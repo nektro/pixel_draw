@@ -260,7 +260,7 @@ pub fn StaticList(comptime T: type, comptime size: u64, zero_value: T) type {
             if (l.len == 0) return zero_value;
             l.len -= 1;
             l.list = l.data[0..l.len];
-            return l.data[len];
+            return l.data[l.len];
         }
 
         pub fn remove(l: *Self, pos: usize) T {
